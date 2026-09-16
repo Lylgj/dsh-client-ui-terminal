@@ -1,0 +1,4 @@
+# 忽略依赖与本地杂项
+node_modules/
+*.log
+.DS_Store

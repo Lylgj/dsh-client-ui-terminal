@@ -1,0 +1,52 @@
+{
+	"name": "@deepseek-ai/dsh-client-ui-terminal",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "DSH Web 右侧常驻终端面板：宿主半边提供同源 PTY WebSocket，浏览器半边把 xterm 面板挂进 shell.overlay 槽。",
+	"license": "MIT",
+	"main": "lib/index.js",
+	"exports": {
+		".": "./lib/index.js",
+		"./client": "./lib/client.js",
+		"./package.json": "./package.json"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Lylgj/dsh-client-ui-terminal.git"
+	},
+	"homepage": "https://github.com/Lylgj/dsh-client-ui-terminal",
+	"bugs": {
+		"url": "https://github.com/Lylgj/dsh-client-ui-terminal/issues"
+	},
+	"keywords": [
+		"dsh",
+		"deepseek-harness",
+		"cordis",
+		"cordis-plugin",
+		"terminal",
+		"xterm",
+		"node-pty",
+		"web-terminal"
+	],
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"test": "node tests/terminal-behavior.mjs",
+		"test:pty": "node tests/terminal-pty.mjs"
+	},
+	"dsh": {
+		"client": {
+			"platform": "web",
+			"inject": [
+				"@deepseek-ai/dsh-client-runtime",
+				"@deepseek-ai/dsh-client-ui-layout"
+			]
+		}
+	},
+	"dependencies": {
+		"node-pty": "^1.0.0",
+		"ws": "^8.0.0"
+	}
+}
