@@ -186,31 +186,46 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
 
 ## 接口
 
-全部挂在 DSH 既有的 webServer 上（同源、随 `dsh web` 启停、不额外占端口）。
+静态资源、信息路由与同源 PTY 通道挂在 DSH 既有的 webServer 上；**终端数据面**则由独立终端进程提供（默认 `127.0.0.1:3110`，见上文「终端为什么跑在独立进程里」）。
 
-### `GET /dsh-terminal/info`
+### `GET /dsh-terminal/info`（宿主半边，同源）
 
 前端启动时用它探测能力与默认值：
 
 ```json
-{ "shell": "/bin/bash", "cwd": "/home/me/work", "busy": false }
+{
+  "shell": "/bin/bash",
+  "cwd": "/home/me/work",
+  "busy": false,
+  "helper": { "host": "127.0.0.1", "port": 3110, "alive": true, "version": "0.2.0" }
+}
 ```
 
 ### `GET /dsh-terminal/assets/<file>`
 
-同源下发内置资源：`xterm.js`、`xterm.css`、`addon-fit.js`。只接受 `assets/` 下的**单层文件名**（含 `/`、`\`、`..` 一律 404），再经 `normalize` + 前缀校验二次兜底，防止目录穿越；未知扩展名按 `application/octet-stream` 返回。响应带 `cache-control: no-cache`。
+同源下发内置资源：`xterm.js`、`xterm.css`、`addon-fit.js`、`addon-webgl.js`。只接受 `assets/` 下的**单层文件名**（含 `/`、`\`、`..` 一律 404），再经 `normalize` + 前缀校验二次兜底，防止目录穿越；未知扩展名按 `application/octet-stream` 返回。响应带 `cache-control: no-cache`。
 
-### `WS /dsh-terminal/ws?cols=80&rows=24&cwd=<urlencode 工作区绝对路径>`
+### `WS /dsh-terminal/ws?...`（宿主半边）与 `WS /ws?...`（独立进程）
+
+两者**协议完全相同**，浏览器半边优先连独立进程，失败才回退同源路由：
 
 - 查询参数：`cols` / `rows` 初始尺寸，`cwd` 终端起始目录。
-- **浏览器 → 宿主**（JSON 控制帧）：
+- **浏览器 → 后端**（JSON 控制帧）：
   - `{"t":"i","d":"ls -l\r"}` —— 键盘输入，`d` 原样写进 PTY。
   - `{"t":"r","c":100,"r":30}` —— 终端尺寸变化。
-- **宿主 → 浏览器**：
-  - PTY 输出**原始文本直通**（不是 JSON，直接写进 xterm）。
+- **后端 → 浏览器**：
+  - PTY 输出**原始文本直通**（不是 JSON，直接写进 xterm）；独立进程会自适应合批。
   - `{"t":"e","d":"..."}` —— 错误（例如超过会话上限、shell 启动失败）。
   - 进程退出时先发一行灰色提示，再关闭连接。
 - 连接关闭即回收对应 shell 进程。
+
+### 独立终端进程自身的 HTTP 接口（`127.0.0.1:3110`）
+
+| 路由 | 用途 |
+| --- | --- |
+| `GET /healthz` | 存活 + 版本探测，宿主用它决定复用还是替换实例 |
+| `GET /info` | 同上，附带 shell、cwd、当前会话数 |
+| `GET /shutdown` | 请求退出（仅监听回环地址；宿主替换旧版本实例时调用） |
 
 ---
 
@@ -222,6 +237,32 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
 - **槽位**：面板注册在 root 作用域的 `shell.overlay` 列表槽里，因此**每个会话**（包括新建会话页）都会渲染它。
 - **并排为什么能互不遮挡**：DSH 的 AppFrame 自带 `overflow: hidden` 且没有固定宽度，所以面板用 `react-dom` 的 `createPortal` 挂到 `document.body`（脱离裁剪），再给框架设 `margin-right`；框架内部用 `ResizeObserver` 感知到自己变窄，会自行重排三栏，因此终端与「详情栏拖拽把手」都不会错位。
 
+### 终端为什么跑在独立进程里（延迟隔离）
+
+`dsh web` 只有**一条事件循环**，上面同时排着逐 token 的流式解析、会话投影、zstd 压缩落盘与随之而来的 GC。
+实测：主进程重载时，一个**只返回几个字节**的 HTTP 接口延迟 p95 会到 180 ms、最坏 20 秒无响应；
+终端按键回显如果也排在同一条队列上，就会出现「打字几秒没反应」——实测最坏 **4967 ms 无回显**。
+
+所以 PTY 与 WebSocket 被放进独立进程 `lib/helper.js`（默认监听 `127.0.0.1:3110`）：
+
+- 浏览器半边**优先直连**该进程，按键回显只受它自己影响；
+- 连不上时**自动回退**到宿主半边的同源路由 `/dsh-terminal/ws`，任何环境都能用；
+- 宿主半边只负责「保证它在跑」：启动探测 `/healthz`、不在就 `detached` 拉起、每 10 秒一次心跳、
+  版本不一致先请旧实例退出再拉起；**插件卸载不会杀掉它**，因此 dsh 重启后已有终端仍可续用；
+- PTY 输出**自适应合批**：孤立的 chunk（典型就是按键回显）立即发出，爆发式输出（`ls -l` 之类）
+  才按 8 ms 窗口合并，避免给打字加固定延迟，同时减少前端逐帧重排。
+
+同一负载窗口下的按键往返延迟实测：
+
+| 负载档 | 独立进程（本插件默认） | 同源回退（隔离前的行为） |
+| --- | --- | --- |
+| 空闲 | 0.7 ms 中位 | 0.7 ms 中位 |
+| 流式输出中 | 1.0 ms p95 | 2204 ms p95 |
+| 主进程重载 | 1.0 ms p95、**0 次超时** | 1538 ms p95、**4 次 >5 秒无回显** |
+
+端口可用 `DSH_TERMINAL_PORT` 改变。如果浏览器是通过端口转发访问 GUI，请把该端口一起转发；
+或在前端控制台执行 `localStorage.setItem('dsh-terminal-port', '<端口>')` 后刷新页面。
+
 ---
 
 ## 已知限制与注意事项
@@ -232,8 +273,8 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
 4. **无鉴权**：`/dsh-terminal/*` 没有任何登录校验（与 DSH 本地 GUI 其余部分一致，只监听回环地址）。**不要**把 `dsh web` 暴露到公网或不可信网络。
 5. **每一次连接就是一个真实 shell 进程**，权限与启动 `dsh web` 的用户相同。
 6. **只显示当前工作区的终端**：其它工作区的 shell 在后台常驻但不显示（没有多标签页 UI）。
-7. **`dsh web` 退出时所有 shell 一起回收**。
-8. 宿主半边的代码改动需要把 `cordis.patch.yml` 里的 `?rev=N` 加一（或重启 `dsh web`）；只改浏览器半边刷新页面即可。
+7. **`dsh web` 退出后独立终端进程仍在运行**（刻意设计：这样已有终端可以续用）。要一并停掉：`curl http://127.0.0.1:3110/shutdown`。
+8. 宿主半边（`lib/index.js`）的代码改动需要**重启 `dsh web`** 才生效（当前 `cordis.patch.yml` 里用的是裸包名，不能再靠改 `?rev=` 触发重载）；独立终端进程的改动只需重启该进程（或改版本号让宿主自动替换），刷新页面即可。
 
 ---
 
@@ -260,7 +301,8 @@ npm run test:pty
 | 改了什么 | 怎么生效 |
 | --- | --- |
 | `lib/client.js`、`assets/*` | 刷新页面（浏览器半边 URL 带内容哈希，无需清缓存） |
-| `lib/index.js`（宿主半边） | 把 `cordis.patch.yml` 里的 `?rev=N` 加一保存（HMR），或重启 `dsh web` |
+| `lib/helper.js`（独立终端进程） | 重启该进程（`curl http://127.0.0.1:3110/shutdown` 后重新拉起），或改 `VERSION` 让宿主自动替换；**不需要重启 dsh** |
+| `lib/index.js`（宿主半边） | **重启 `dsh web`** |
 | `package.json` 的 `dsh.client` 声明 | 重启 `dsh web` |
 
 ---

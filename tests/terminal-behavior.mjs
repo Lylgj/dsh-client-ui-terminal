@@ -73,7 +73,11 @@ globalThis.document = {
 //#endregion
 
 //#region 浏览器环境桩
-globalThis.location = { protocol: "http:", host: process.env.DSH_TERM_HOST ?? "127.0.0.1:3080" };
+globalThis.location = {
+	protocol: "http:",
+	host: process.env.DSH_TERM_HOST ?? "127.0.0.1:3080",
+	hostname: (process.env.DSH_TERM_HOST ?? "127.0.0.1:3080").split(":")[0],
+};
 globalThis.localStorage = { store: new Map(), getItem(k) { return this.store.has(k) ? this.store.get(k) : null; }, setItem(k, v) { this.store.set(k, String(v)); } };
 globalThis.requestAnimationFrame = (fn) => fn();
 globalThis.addEventListener = () => {};
@@ -85,12 +89,25 @@ globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ sh
 const sockets = [];
 globalThis.WebSocket = class {
 	static OPEN = 1;
+	/**
+	 * 设成某个子串后，URL 命中它的连接会被"拒绝"（不握手直接关闭），
+	 * 用来模拟独立终端进程不可达、验证前端回退到同源路由。
+	 */
+	static refuseSubstring = null;
 	constructor(url) {
 		this.url = url;
 		this.readyState = 0;
 		this.sent = [];
 		this.closed = false;
 		sockets.push(this);
+		if (globalThis.WebSocket.refuseSubstring !== null && url.includes(globalThis.WebSocket.refuseSubstring)) {
+			queueMicrotask(() => {
+				this.closed = true;
+				this.readyState = 3;
+				this.onclose?.();
+			});
+			return;
+		}
 		queueMicrotask(() => {
 			if (this.closed) return;
 			this.readyState = 1;
@@ -308,6 +325,8 @@ check("两条 WS 都还活着", sockets.every((s) => !s.closed));
 console.log("\n场景 4：隐藏中的终端仍在收数据（滚动缓冲不丢）");
 const before = terms[0].written.length;
 sockets[0].onmessage?.({ data: "hello-from-test" });
+// 浏览器半边刻意把写入合批到同一个宏任务里（避免逐帧重排），所以这里要等一拍。
+await new Promise((resolve) => setTimeout(resolve, 20));
 check("旧终端收到并写入数据", terms[0].written.length > before && terms[0].written.at(-1) === "hello-from-test");
 
 console.log("\n场景 5：收起/展开不销毁 shell");
@@ -403,6 +422,20 @@ check("三个终端全部回到浅色调色板",
   terms.map((t) => t.options.theme?.background).join(","));
 check("面板 data-theme=light（回到浅色）", panelNow()?.["data-theme"] === "light", String(panelNow()?.["data-theme"]));
 check("主题切换全程没有关闭任何 WS", sockets.every((x) => !x.closed));
+
+console.log("\n场景 11：终端后端选择（优先独立进程，不可达时回退同源）");
+check("默认优先连独立终端进程 :3110", sockets[0]?.url.includes(":3110/ws"), String(sockets[0]?.url));
+check("独立进程 URL 带 cols/rows/cwd", /cols=\d+/.test(sockets[0]?.url ?? "") && sockets[0].url.includes("cwd="), String(sockets[0]?.url));
+
+globalThis.WebSocket.refuseSubstring = ":3110";
+const socketsBefore = sockets.length;
+store.current = "s4";
+await settle();
+const fallback = sockets.at(-1);
+check("独立进程不可达时新增了一条连接", sockets.length > socketsBefore, `新增 ${sockets.length - socketsBefore}`);
+check("回退到同源路由 /dsh-terminal/ws", fallback?.url.includes("/dsh-terminal/ws"), String(fallback?.url));
+check("回退连接不指向 :3110", !fallback?.url.includes(":3110"), String(fallback?.url));
+globalThis.WebSocket.refuseSubstring = null;
 
 console.log(`\n结果：通过 ${pass}，失败 ${fail}`);
 process.exit(fail === 0 ? 0 : 1);
