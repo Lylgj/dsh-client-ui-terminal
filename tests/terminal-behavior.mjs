@@ -24,6 +24,8 @@ class El {
 		this.textContent = "";
 		this.id = "";
 		this.parent = null;
+		/** 事件监听表：type -> handlers（供右键粘贴等用例断言）。 */
+		this.listeners = new Map();
 		allEls.push(this);
 	}
 	appendChild(c) {
@@ -46,6 +48,42 @@ class El {
 	}
 	getAttribute(k) {
 		return this[k] ?? null;
+	}
+	/**
+	 * 注册事件监听（最小实现：只保存，供 dispatchEvent 触发）。
+	 * @param type - 事件名。
+	 * @param handler - 处理函数。
+	 * @returns 无返回值。
+	 */
+	addEventListener(type, handler) {
+		if (!this.listeners.has(type)) this.listeners.set(type, []);
+		this.listeners.get(type).push(handler);
+	}
+	/**
+	 * 移除事件监听。
+	 * @param type - 事件名。
+	 * @param handler - 处理函数。
+	 * @returns 无返回值。
+	 */
+	removeEventListener(type, handler) {
+		const list = this.listeners.get(type);
+		if (list === undefined) return;
+		this.listeners.set(
+			type,
+			list.filter((x) => x !== handler)
+		);
+	}
+	/**
+	 * 触发事件，返回是否被 preventDefault（用来断言插件确实拦截了右键菜单）。
+	 * @param type - 事件名。
+	 * @param ev - 事件对象（可含 preventDefault）。
+	 * @returns 是否调用了 preventDefault。
+	 */
+	dispatchEvent(type, ev) {
+		let prevented = false;
+		const event = { type, preventDefault: () => { prevented = true; }, ...(ev ?? {}) };
+		for (const handler of [...(this.listeners.get(type) ?? [])]) handler(event);
+		return prevented;
 	}
 }
 const head = new El("head");
@@ -82,6 +120,24 @@ globalThis.localStorage = { store: new Map(), getItem(k) { return this.store.has
 globalThis.requestAnimationFrame = (fn) => fn();
 globalThis.addEventListener = () => {};
 globalThis.removeEventListener = () => {};
+
+/** 记录被写入剪贴板的文本（模拟 navigator.clipboard.writeText）。 */
+const clipboardWrites = [];
+/** 待读取的剪贴板内容队列（模拟 navigator.clipboard.readText）。 */
+const clipboardReads = [];
+// Node 自带的 globalThis.navigator 是只读 getter，必须用 defineProperty 覆盖。
+Object.defineProperty(globalThis, "navigator", {
+	configurable: true,
+	writable: true,
+	value: {
+		clipboard: {
+			writeText: async (text) => {
+				clipboardWrites.push(text);
+			},
+			readText: async () => (clipboardReads.length > 0 ? clipboardReads.shift() : "")
+		}
+	}
+});
 globalThis.ResizeObserver = class { observe() {} disconnect() {} };
 globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ shell: "/bin/bash", cwd: WS_A, busy: false }), text: async () => "{}" });
 
@@ -121,12 +177,28 @@ globalThis.WebSocket = class {
 /** 所有已创建的 xterm 实例。 */
 const terms = [];
 globalThis.Terminal = class {
-	constructor(opts) { this.cols = 80; this.rows = 24; this.written = []; this.disposed = false; this.options = opts ?? {}; terms.push(this); }
+	constructor(opts) {
+		this.cols = 80;
+		this.rows = 24;
+		this.written = [];
+		this.disposed = false;
+		this.options = opts ?? {};
+		/** 当前选中文本（用例直接改它来模拟鼠标选择）。 */
+		this.selection = "";
+		/** 通过 paste() 粘贴进来的内容。 */
+		this.pasted = "";
+		terms.push(this);
+	}
 	loadAddon() {}
 	open() {}
 	onData(cb) { this.onDataCb = cb; }
 	onResize(cb) { this.onResizeCb = cb; }
 	onTitleChange() {}
+	attachCustomKeyEventHandler(cb) { this.keyHandler = cb; }
+	onSelectionChange(cb) { this.selectionCb = cb; }
+	getSelection() { return this.selection; }
+	hasSelection() { return this.selection !== ""; }
+	paste(text) { this.pasted += text; }
 	write(t) { this.written.push(t); }
 	clear() {}
 	focus() {}
@@ -436,6 +508,83 @@ check("独立进程不可达时新增了一条连接", sockets.length > socketsB
 check("回退到同源路由 /dsh-terminal/ws", fallback?.url.includes("/dsh-terminal/ws"), String(fallback?.url));
 check("回退连接不指向 :3110", !fallback?.url.includes(":3110"), String(fallback?.url));
 globalThis.WebSocket.refuseSubstring = null;
+
+console.log("\n场景 12：终端复制/粘贴开关（三个独立开关，可任意组合）");
+/** 所有工作区终端宿主元素（右键粘贴的监听就挂在这里）。 */
+const hostEls = () => allEls.filter((e) => e.className === "dsh-term-host");
+/** 设置面板里的某个复选框（按文案找）。 */
+const optBox = (text) =>
+	((allEls.filter((e) => e.className === "dsh-term-opt" && (e.__kids ?? []).includes(text)).at(-1)?.__kids) ?? []).find(
+		(k) => k instanceof El && k.tagName === "INPUT"
+	);
+/** 读回持久化的开关。 */
+const storedClip = () => {
+	try {
+		return JSON.parse(globalThis.localStorage.getItem("dsh.terminal.clipboard") ?? "{}");
+	} catch {
+		return {};
+	}
+};
+const term0 = terms[0];
+const keyEv = (over) => ({ type: "keydown", key: "c", ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...over });
+
+// ① Ctrl+C：有选中内容 → 复制，且不把 ^C 发给 PTY
+term0.selection = "git status --short";
+const sentBefore = sockets.map((s) => s.sent.length);
+check("有选中内容时 Ctrl+C 被拦截（返回 false）", term0.keyHandler(keyEv({ ctrlKey: true })) === false);
+await new Promise((r) => setTimeout(r, 20));
+check("Ctrl+C 把选中文本写入剪贴板", clipboardWrites.at(-1) === "git status --short", JSON.stringify(clipboardWrites.at(-1)));
+check("拦截后没有向 PTY 发送任何数据", sockets.every((s, i) => s.sent.length === sentBefore[i]));
+
+// ② 无选中内容 → 放行，保持中断命令的能力
+term0.selection = "";
+check("无选中内容时 Ctrl+C 放行（仍是 ^C）", term0.keyHandler(keyEv({ ctrlKey: true })) === true);
+
+// ③ 组合键与普通按键不受影响
+term0.selection = "abc";
+check("Ctrl+Shift+C 不拦截", term0.keyHandler(keyEv({ ctrlKey: true, shiftKey: true })) === true);
+check("Ctrl+Alt+C 不拦截", term0.keyHandler(keyEv({ ctrlKey: true, altKey: true })) === true);
+check("普通按键不受影响", term0.keyHandler(keyEv({ key: "d" })) === true);
+check("keyup 不拦截", term0.keyHandler({ ...keyEv({ ctrlKey: true }), type: "keyup" }) === true);
+term0.selection = "";
+
+// ④ 右键粘贴（默认开启）
+clipboardReads.push("echo hi\r");
+const prevented = hostEls()[0].dispatchEvent("contextmenu");
+await new Promise((r) => setTimeout(r, 20));
+check("右键被拦截（不再弹浏览器菜单）", prevented === true);
+check("右键内容交给 term.paste（保持括号粘贴语义）", term0.pasted === "echo hi\r", JSON.stringify(term0.pasted));
+
+// ⑤ 打开设置面板，关掉右键粘贴
+themeBtn("复制").__props.onClick();
+await settle();
+check("设置面板出现三个开关", allEls.filter((e) => e.className === "dsh-term-opt").length >= 3, String(allEls.filter((e) => e.className === "dsh-term-opt").length));
+optBox("右键粘贴").__props.onChange();
+await settle();
+check("开关已持久化", storedClip().rightPaste === false, JSON.stringify(storedClip()));
+clipboardReads.push("should-not-paste");
+check("关掉右键粘贴后不再拦截浏览器菜单", hostEls()[0].dispatchEvent("contextmenu") !== true);
+await new Promise((r) => setTimeout(r, 20));
+check("关掉后不会粘贴", term0.pasted === "echo hi\r", JSON.stringify(term0.pasted));
+
+// ⑥ 选中即复制（默认关闭 → 打开后停稳即复制）
+term0.selection = "selected-by-mouse";
+term0.selectionCb?.();
+await new Promise((r) => setTimeout(r, 250));
+check("默认关闭时选中不写剪贴板", clipboardWrites.at(-1) !== "selected-by-mouse", JSON.stringify(clipboardWrites.at(-1)));
+optBox("选中即复制").__props.onChange();
+await settle();
+term0.selectionCb?.();
+await new Promise((r) => setTimeout(r, 250));
+check("打开后选中停稳即复制", clipboardWrites.at(-1) === "selected-by-mouse", JSON.stringify(clipboardWrites.at(-1)));
+check("三个开关可同时生效（ctrlC 与 selectCopy 均开）", storedClip().ctrlC === true && storedClip().selectCopy === true, JSON.stringify(storedClip()));
+
+// ⑦ 组合验证：Ctrl+C 关闭后即使有选中内容也放行
+optBox("Ctrl+C 复制").__props.onChange();
+await settle();
+term0.selection = "still-selected";
+check("关掉 Ctrl+C 复制后放行（交回 xterm 发 ^C）", term0.keyHandler(keyEv({ ctrlKey: true })) === true);
+check("关掉后不再写剪贴板", clipboardWrites.at(-1) !== "still-selected", JSON.stringify(clipboardWrites.at(-1)));
 
 console.log(`\n结果：通过 ${pass}，失败 ${fail}`);
 process.exit(fail === 0 ? 0 : 1);
