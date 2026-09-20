@@ -586,5 +586,64 @@ term0.selection = "still-selected";
 check("关掉 Ctrl+C 复制后放行（交回 xterm 发 ^C）", term0.keyHandler(keyEv({ ctrlKey: true })) === true);
 check("关掉后不再写剪贴板", clipboardWrites.at(-1) !== "still-selected", JSON.stringify(clipboardWrites.at(-1)));
 
+console.log("\n场景 13：提示气泡位置可选（默认底部居中）");
+/** 递归展开当前这一帧渲染出来的元素（React 桩把子节点放在 __kids 里，不 appendChild）。 */
+const flat = (node, out = []) => {
+	if (node === null || node === undefined || typeof node === "string") return out;
+	if (Array.isArray(node)) {
+		for (const k of node) flat(k, out);
+		return out;
+	}
+	if (node instanceof El) {
+		out.push(node);
+		for (const k of node.__kids ?? []) flat(k, out);
+		return out;
+	}
+	for (const k of node.kids ?? []) flat(k, out);
+	return out;
+};
+/** 当前渲染里的提示气泡（没有则为 undefined，能区分「已消失」）。 */
+const currentToast = () => flat(panelNow()).filter((e) => e["data-dsh-terminal-toast"] === "1").at(-1);
+/** 当前渲染里的位置档按钮。 */
+const segBtn = (label) => flat(panelNow()).filter((e) => e.className === "dsh-term-seg" && (e.__kids ?? []).includes(label)).at(-1);
+
+// 场景 12 关掉了 Ctrl+C 复制，这里先打开
+optBox("Ctrl+C 复制").__props.onChange();
+await settle();
+term0.selection = "toast-test";
+term0.keyHandler(keyEv({ ctrlKey: true }));
+await new Promise((r) => setTimeout(r, 30));
+check("复制后出现提示气泡", currentToast() !== undefined);
+check("默认位置是底部居中", currentToast()?.["data-pos"] === "bottom", String(currentToast()?.["data-pos"]));
+check("提示文案含字符数", /已复制 10 个字符/.test(String(currentToast()?.__kids?.[0] ?? "")), JSON.stringify(currentToast()?.__kids?.[0]));
+await new Promise((r) => setTimeout(r, 1400));
+check("提示会自动消失", currentToast() === undefined);
+
+// 关闭提示
+segBtn("关闭提示").__props.onClick();
+await settle();
+check("位置选择写入 localStorage", storedClip().toastPos === "off", JSON.stringify(storedClip()));
+term0.selection = "quiet";
+term0.keyHandler(keyEv({ ctrlKey: true }));
+await new Promise((r) => setTimeout(r, 30));
+check("关闭提示后不再弹气泡", currentToast() === undefined);
+
+// 跟随鼠标（用右键粘贴触发，事件自带指针坐标）
+optBox("右键粘贴").__props.onChange();
+await settle();
+segBtn("跟随鼠标").__props.onClick();
+await settle();
+clipboardReads.push("echo cursor");
+const prevented2 = hostEls()[0].dispatchEvent("contextmenu", { clientX: 700, clientY: 400 });
+await new Promise((r) => setTimeout(r, 30));
+check("跟随鼠标：气泡标记为 cursor", currentToast()?.["data-pos"] === "cursor", String(currentToast()?.["data-pos"]));
+check(
+	"跟随鼠标：气泡落在指针位置",
+	currentToast()?.style?.left === "700px" && currentToast()?.style?.top === "400px",
+	JSON.stringify(currentToast()?.style)
+);
+check("右键仍然被拦截", prevented2 === true);
+check("位置已持久化", storedClip().toastPos === "cursor", JSON.stringify(storedClip()));
+
 console.log(`\n结果：通过 ${pass}，失败 ${fail}`);
 process.exit(fail === 0 ? 0 : 1);
