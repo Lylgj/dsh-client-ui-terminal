@@ -34,7 +34,8 @@
 	},
 	"scripts": {
 		"test": "node tests/terminal-behavior.mjs",
-		"test:pty": "node tests/terminal-pty.mjs"
+		"test:pty": "node tests/terminal-pty.mjs",
+		"test:pager": "node tests/terminal-pager.mjs"
 	},
 	"dsh": {
 		"client": {

@@ -20,6 +20,7 @@
 | 宽度可调 | 左侧边缘可拖动，280 ~ 1100 px |
 | 无 CDN、无新端口、无新进程 | xterm 资源由 DSH 自己的 webServer 同源下发；后端挂在既有 webServer 上 |
 | 复制/粘贴可配 | **Ctrl+C 复制**、**选中即复制**、**右键粘贴** 三个独立开关，可任意组合，选择持久化 |
+| 真终端行为 | `git log` 等长输出自动进 `less`：Enter 翻行、空格翻页、**Ctrl+C 或 q 退出**（不会被强制整段打印） |
 | 刷新即升级 | 浏览器半边按内容哈希取包，改完 JS 刷新页面即可 |
 
 ---
@@ -68,6 +69,22 @@
 | `关闭提示` | 复制/粘贴后不弹任何提示 |
 
 提示文案形如「已复制 12 个字符」/「已粘贴 24 个字符」，失败时说明原因（例如剪贴板权限被拒），所以不会出现"到底复制上没有"的疑问。
+
+### 长输出分页（less）
+
+`git log`、`journalctl`、`man` 这类长输出会正常进入分页器（`less`）：**从头开始显示**，`Enter` 往下翻一行、`空格` 翻一页、`q` 或 **`Ctrl+C`** 退出。
+
+这里有一个容易踩的坑：**DSH 的 bash 工具会给它启动的 shell 注入 `PAGER=cat` / `GIT_PAGER=cat`**（避免 agent 的非交互命令卡在分页器里）。如果插件进程恰好是从那种 shell 启动的（例如手动从 DSH 的终端里拉起独立终端进程），这两个变量会一路继承到面板终端 —— 症状就是 `git log` 把 8000 多行直接刷完、完全不给你翻页的机会。
+
+所以宿主两半边都会在起 PTY 前做一次环境归一化：
+
+| 变量 | 处理 |
+| --- | --- |
+| `PAGER` / `GIT_PAGER` | 值为 `cat` 时**丢弃**（这是 agent 工具链的约定，不该带进真终端）；其他值原样保留 |
+| `LESS` | 未设置时给 `FRXK`：`F` 一屏放得下就直接输出、`R` 保留颜色、`X` 不用备用屏（退出后内容留在回滚缓冲）、**`K` 让 `Ctrl+C` 直接退出分页器** |
+| `TERM` / `COLORTERM` | 固定为 `xterm-256color` / `truecolor` |
+
+想保留继承来的原值（比如你就喜欢 `PAGER=cat` 的整段输出）：设 `DSH_TERMINAL_KEEP_PAGER=1` 再启动 dsh。
 
 其它交互：
 
@@ -299,6 +316,7 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
 8. 宿主半边（`lib/index.js`）的代码改动需要**重启 `dsh web`** 才生效（当前 `cordis.patch.yml` 里用的是裸包名，不能再靠改 `?rev=` 触发重载）；独立终端进程的改动只需重启该进程（或改版本号让宿主自动替换），刷新页面即可。
 9. **读取剪贴板需要安全上下文**：右键粘贴走 `navigator.clipboard.readText()`，浏览器只在 `localhost` / `HTTPS` 下允许。若是通过普通 IP + HTTP 打开 GUI，右键会提示「请用 Ctrl+V」（xterm 自身支持浏览器粘贴事件，所以 Ctrl+V 一直可用）。复制侧优先用剪贴板 API，失败会退回 `execCommand('copy')`，一般不受影响。
 10. **`Ctrl+C 复制` 只在有选中内容时生效**：这是刻意的——没有选中时 `Ctrl+C` 仍然是 `^C`，否则就没法中断前台命令了。要复制整屏内容请先选中，或用 `Ctrl+Shift+C`（部分浏览器/终端模拟器的习惯键）。
+11. **环境变量改动要重启终端进程才生效**：PTY 的环境是在建连接时定下来的。`DSH_TERMINAL_KEEP_PAGER` 之类的开关改完，用 `curl http://127.0.0.1:3110/shutdown` 结束独立终端进程（宿主会在 10 秒内用新环境重新拉起），或直接重启 `dsh web`。注意：**改完 `lib/` 后不要只改 `HELPER_VERSION`/`VERSION` 里的版本号而不重启 `dsh web`** —— 运行中的旧宿主半边会用旧版本号去比对，导致独立终端进程被反复关掉重启（每隔 10 秒一次）。要升级版本号，请同时重启 `dsh web`。
 
 ---
 
@@ -316,9 +334,14 @@ npm test
 #    验证互不顶掉、各自 cd 独立、断开后无 shell 泄漏
 #    前置：dsh web 在跑；ws 模块可解析（npm i -D ws 即可）
 npm run test:pty
+
+# 3) 真机集成：验证分页器行为（PAGER/GIT_PAGER 归一化、
+#    长输出停在 less、Enter 翻行、Ctrl+C 与 q 都能退出）
+#    前置：终端后端可达（默认独立终端进程 127.0.0.1:3110）
+npm run test:pager
 ```
 
-可用的环境变量：`DSH_TERM_HOST`、`DSH_TERM_ORIGIN`、`DSH_TERM_WS_A`、`DSH_TERM_WS_B`、`DSH_TERM_WS_BASE`。
+可用的环境变量：`DSH_TERM_HOST`、`DSH_TERM_ORIGIN`、`DSH_TERM_WS_A`、`DSH_TERM_WS_B`、`DSH_TERM_WS_BASE`、`DSH_TERM_PAGER_WS`、`DSH_TERMINAL_PORT`、`DSH_TERMINAL_KEEP_PAGER`。
 
 改动生效方式：
 
