@@ -1,9 +1,9 @@
 {
 	"name": "@deepseek-ai/dsh-client-ui-terminal",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"private": true,
 	"type": "module",
-	"description": "DSH Web 右侧常驻终端面板：宿主半边提供同源 PTY WebSocket，浏览器半边把 xterm 面板挂进 shell.overlay 槽。",
+	"description": "DSH Web 终端插件：装了 dsh-better-sidebar 时接入其侧栏（终端的侧栏页签），没装时以右侧常驻面板独立运行；宿主半边提供同源 PTY WebSocket。",
 	"license": "MIT",
 	"main": "lib/index.js",
 	"exports": {
@@ -27,13 +27,16 @@
 		"terminal",
 		"xterm",
 		"node-pty",
-		"web-terminal"
+		"web-terminal",
+		"better-sidebar"
 	],
 	"engines": {
 		"node": ">=20"
 	},
 	"scripts": {
-		"test": "node tests/terminal-behavior.mjs",
+		"test": "node tests/terminal-behavior.mjs && node tests/better-sidebar-integration.mjs",
+		"test:behavior": "node tests/terminal-behavior.mjs",
+		"test:sidebar": "node tests/better-sidebar-integration.mjs",
 		"test:pty": "node tests/terminal-pty.mjs",
 		"test:pager": "node tests/terminal-pager.mjs"
 	},

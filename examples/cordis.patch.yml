@@ -10,11 +10,10 @@
 # 本包是双面包：宿主半边把 xterm 静态资源与 PTY 的 WebSocket 挂到同源 webServer
 # 上，浏览器半边由 package.json 的 dsh.client 声明自动发现并投递到页面。
 #
-# 这里用「相对路径 + ?rev=N」而不是裸包名，原因是 cordis loader 的模块导入以
-# 解析后的 URL 为缓存键：裸包名永远解析到同一个 URL，改了代码也不会重新导入
-# （配置 diff 在 name 不变时直接复用旧 callback）。带上 rev 查询串即可得到新的
-# URL，从而在**不重启 dsh web** 的前提下热加载宿主半边的新代码。改完代码把 rev
-# 加一保存，本文件受 Cordis HMR 监视，会立即生效。
+# 这里用相对路径而不是裸包名：相对路径在 profile 作用域内解析到插件入口。
+# 注意 path 里不要带查询串：DSH 0.2.2 的 loader 会把 ?rev=N 当成文件名的一部分，
+# 报 ERR_MODULE_NOT_FOUND（旧版 loader 曾用 ?rev=N 制造新 URL 来热加载宿主半边，
+# 0.2.2 不再适用——宿主半边的代码改动需要重启 DSH 才生效）。
 - insert:
     - id: ui-terminal
-      name: './node_modules/@deepseek-ai/dsh-client-ui-terminal/lib/index.js?rev=1'
+      name: './node_modules/@deepseek-ai/dsh-client-ui-terminal/lib/index.js'

@@ -7,6 +7,8 @@
 > 这是一个**第三方本地插件**，不走 npm 分发。用法是把本仓库放进 DSH profile 的 `node_modules/`，再在 profile 的 `cordis.patch.yml` 里加一条 `insert` 条目。
 > 包名沿用 `@deepseek-ai/dsh-client-ui-terminal` 只是为了让安装路径与本机既有安装保持一致；它**不是** DeepSeek 官方包。`package.json` 里已设 `private: true`，防止误发布到 npm。
 
+> **可选接入 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)**：profile 里装了它时，本插件会把终端注册成它的**侧栏页签**（不再额外浮一个面板）；没装就保持下面描述的独立面板形态。两种安装方式共用同一套终端核心，不需要改代码，也不修改 better-sidebar 本体。
+
 ---
 
 ## 特性
@@ -17,10 +19,12 @@
 | 每个工作区一个常驻 shell | 以会话的 `cwd` 为键；切换会话不重建、不顶掉别的 shell |
 | 两种布局 | **并排**（DSH 让出右侧空间，互不遮挡）/ **浮层**（终端盖在页面上方） |
 | 明暗主题 | 浅色（白底深字）/ 暗色（Catppuccin Mocha 系），切换不重建 shell |
+| 多 shell 选择 | 工具条下拉框可切 cmd / Windows PowerShell / pwsh / WSL 各发行版 / `~/.ssh/config` 里的主机；默认按工作目录自动匹配（WSL 路径、`.remote-ssh.json` 远程工作区） |
 | 宽度可调 | 左侧边缘可拖动，280 ~ 1100 px |
 | 无 CDN、无新端口、无新进程 | xterm 资源由 DSH 自己的 webServer 同源下发；后端挂在既有 webServer 上 |
 | 复制/粘贴可配 | **Ctrl+C 复制**、**选中即复制**、**右键粘贴** 三个独立开关，可任意组合，选择持久化 |
 | 真终端行为 | `git log` 等长输出自动进 `less`：Enter 翻行、空格翻页、**Ctrl+C 或 q 退出**（不会被强制整段打印） |
+| 可接入 better-sidebar | 装了它时以**侧栏页签**出现（只走其公开的 `registerTab` API，不修改它本体）；没装则保持独立面板 |
 | 刷新即升级 | 浏览器半边按内容哈希取包，改完 JS 刷新页面即可 |
 
 ---
@@ -102,7 +106,8 @@
 
 - 已安装 DSH，`dsh web` 能正常跑起来（默认地址 `http://127.0.0.1:3080`）。
 - Node.js ≥ 20（本插件在 Node 24 上验证通过）。
-- Linux（宿主半边依赖 `node-pty`，需要本机能编译原生模块；Windows 未验证）。
+- Linux、macOS 或 Windows。宿主半边依赖 `node-pty`：Linux/macOS 需要本机能编译原生模块；Windows 走 DSH 自带的 `node-pty`（conpty），用 `cmd.exe` 起 shell（可用 `DSH_TERMINAL_SHELL` 覆盖）。
+- **独立终端进程**（`lib/helper.js`，提供按键回显隔离）默认只在 Linux/macOS 启动；Windows 下自动跳过、回退到宿主同源 PTY 路由（功能完整，只是失去那层隔离）。
 - 知道你的 profile 目录，默认是 `~/.dsh/profiles/web`。
 
 ### 步骤
@@ -123,7 +128,7 @@ cat >> ~/.dsh/profiles/web/cordis.patch.yml <<'YAML'
 # DSH Web 右侧常驻终端面板（宿主半边）
 - insert:
     - id: ui-terminal
-      name: './node_modules/@deepseek-ai/dsh-client-ui-terminal/lib/index.js?rev=1'
+      name: './node_modules/@deepseek-ai/dsh-client-ui-terminal/lib/index.js'
 YAML
 ```
 
@@ -133,6 +138,11 @@ YAML
 #    若没生效（例如首次新增条目），重启一次 dsh web 即可。
 ```
 
+> **注意：`name` 里不要带 `?rev=N`。** DSH 0.2.2 起 loader 按字面 URL 导入插件入口，
+> 查询串会被当成文件名的一部分，报 `ERR_MODULE_NOT_FOUND`（`.../lib/index.js?rev=1` 找不到）。
+> 旧版 DSH 可以靠 `?rev=N` 制造新 URL 来热加载宿主半边，0.2.2 不再适用——宿主半边的改动
+> 需要重启 DSH（`dsh web` 重起进程；桌面端退出重开）。
+
 ```bash
 # 4) 验证：应返回一段 JSON
 curl -s http://127.0.0.1:3080/dsh-terminal/info
@@ -141,9 +151,33 @@ curl -s http://127.0.0.1:3080/dsh-terminal/info
 
 最后**刷新浏览器页面**（http://127.0.0.1:3080），右侧就会出现终端面板。
 
+### 在 DSH 桌面端（Electron）安装
+
+桌面端的 profile 目录不同，而且启动方式没有 `dsh web` 的控制台：
+
+- Windows：`%USERPROFILE%\.dsh\profiles\desktop`
+- macOS：`~/.dsh/profiles/desktop`
+- Linux：`~/.dsh/profiles/desktop`
+
+把仓库复制到 `<profile>\node_modules\@deepseek-ai\dsh-client-ui-terminal`，在 `<profile>\cordis.patch.yml` 里追加与上面相同的 `insert`（Windows 路径同样用正斜杠即可），然后**完全退出并重开 DSH 桌面端**。
+
+桌面端插件加载失败时页面不会报错（错误只写宿主日志，GUI 里看不到）。排查方法：在 DeepSeek Harness 里打开插件管理，把 `ui-terminal` 先禁用再启用——失败时返回值里会带具体的导入错误（例如 `ERR_MODULE_NOT_FOUND`）。
+
+### 可选：接入 dsh-better-sidebar
+
+profile 里已经装了 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时，本插件会自动把终端注册成**它的侧栏页签**，不需要改任何代码 —— **不要**修改 better-sidebar 的包内容，只动 profile 的 `cordis.patch.yml`。
+
+加载顺序建议：把本插件那条 `ui-terminal` 的 `insert` 放在 better-sidebar 的 `insert` **之后**（同一文件里顺序越靠后越晚加载）。插件在 `apply` 里用 `ctx.get('betterSidebar')` 探测；若服务还没就绪，它也会在服务出现时自动切到页签形态，所以顺序不是硬性要求。
+
+验证与回退：
+
+- 刷新页面后右侧栏出现「终端」页签 → 接入成功；此时不会再出现独立浮层面板。
+- 删掉 `ui-terminal` 的 `insert` 并刷新 → 回到独立浮层面板形态（终端仍然能用）。
+- 卸载 better-sidebar 并刷新 → 同理自动回到浮层形态，本插件不受影响。
+
 ### 关于依赖
 
-**通常不需要单独装依赖。** DSH 自身就依赖 `node-pty` 与 `ws`，插件里的这两个裸导入会由 DSH 的模块回退机制解析到 DSH 安装目录，所以只放一个插件目录就能跑（本机实测 profile 的 `node_modules` 里只有插件本身，没有 `node-pty`/`ws`）。
+**通常不需要单独装依赖。** `node-pty` 与 `ws` 在 DSH 的安装树里都有，DSH 的安装依赖解析会尽量把它们提供给 profile 里的插件。不过桌面端（Electron + `app.asar`）的模块解析更严格：本机在 DSH 0.2.2-rc.1 上实测，插件要能解析到 `node-pty` 才会加载，所以桌面端的安装副本里自带了 `node_modules/node-pty`（从 DSH 自带的那份复制，含 conpty 原生文件）。若你的环境里面板报「无法启动 shell」或插件加载失败，在**插件目录内**补装/复制一份即可：
 
 只有当你的 DSH 环境里确实找不到这两个模块（表现为面板报「无法启动 shell」）时，才在**插件目录内**补装：
 
@@ -165,7 +199,7 @@ npm install --omit=dev
 `cordis.patch.yml` 是 profile 的「用户 patch 层」，在 profile 的所有 bundle 层之后应用，顶层是一个 loader patch 条目数组。上面那条 `insert` 就是往插件列表里插入一个条目：
 
 - `id: ui-terminal`：条目标识。
-- `name:` **刻意用的是相对路径 + `?rev=N`**，而不是裸包名。原因是 cordis loader 以「解析后的 URL」作为模块导入的缓存键：裸包名永远解析到同一个 URL，改了代码也不会重新导入；带上 `rev` 查询串就能得到一个新 URL，从而在**不重启 `dsh web`** 的前提下热加载宿主半边的新代码。改完宿主代码把 `rev` 加一保存即可。
+- `name:` 用**相对路径**而不是裸包名。相对路径在 profile 作用域里解析到插件入口（`package.json` 的 `main`），路径里**不要带查询串**：DSH 0.2.2 的 loader 会把 `?rev=N` 当成文件名的一部分，报 `ERR_MODULE_NOT_FOUND`。（旧版 DSH 的 loader 以解析后的 URL 作为缓存键，可以用 `?rev=N` 制造新 URL 来热加载；0.2.2 起不再适用，宿主半边的改动需要重启 DSH。）
 
 （浏览器半边不需要这样：它的 URL 自带内容哈希，刷新页面就是最新的。）
 
@@ -192,11 +226,40 @@ npm install --omit=dev
 
 点 `浅色` / `暗色` 切换。只改 xterm 的配色，**不会重建 shell**，也就不会中断正在跑的命令。选择同样记在 `localStorage`。
 
+### 选择 shell（cmd / PowerShell / WSL / SSH）
+
+工具条右侧有一个 shell 下拉框，列表由宿主半边探测生成，每次连接前可切换：
+
+| 选项 | 来源 |
+| --- | --- |
+| 默认 shell | 不指定具体程序：WSL 的 `\\wsl.localhost\<发行版>\...` 路径 → 该发行版 bash；含 `.remote-ssh.json` 的远程工作区 → ssh 到那台主机；其余 → 本机 `cmd.exe`（Windows）或登录 shell（POSIX） |
+| cmd.exe | 固定项（Windows） |
+| Windows PowerShell | PATH 里探测到 `powershell.exe` 才列出 |
+| pwsh | PATH 里探测到 `pwsh.exe` 才列出（PowerShell 7） |
+| WSL: `<发行版>` | `wsl.exe -l -q` 列出的已注册发行版；Windows 路径会自动转成 `/mnt/d/...` 并 `--cd` 进去 |
+| SSH: `<主机>` | 解析 `~/.ssh/config` 的 `Host` 行（跳过通配符与 `!` 否定项），以 `ssh -tt <主机>` 启动 |
+
+选择结果按工作区记在 `localStorage` 的 `dsh.terminal.shells`（JSON：会话键 → shell id），切回该工作区时沿用；
+切换 shell 会重连该工作区的宿主 PTY（原来的 shell 被结束，屏幕上的历史输出保留，新 shell 从新提示符开始）。
+选中项只会作为 `?shell=` 参数发给宿主，宿主用白名单映射成固定命令，不会执行任意命令。
+
+> SSH 主机若在 `~/.ssh/config` 里没有配密钥，会在终端里提示输密码 —— 直接在里面输入即可（PTY 是真实的，密码不会回显）。
+> 用 `.remote-ssh.json` 标记的远程工作区走 DSH 远程工作区同一套密钥，不需要手动输密码。
+
 ### 面板宽度
 
 把鼠标移到面板左边缘（出现拖动条）拖动即可，范围 280 ~ 1100 px，松手后宽度写入 `localStorage`。
 
 > 并排模式下如果窗口本身很窄（`窗口宽度 − 面板宽度 < 1024px`），DSH 会自动把左侧栏收成 56px 的窄条 —— 这是 DSH 自己的窄屏策略。想避免：把面板拖窄一点、把窗口拉宽，或者切到「浮层」。
+
+### 接入 dsh-better-sidebar 时的形态
+
+profile 里装了 better-sidebar 时，终端以它的**侧栏页签**出现（标题「终端」，图标 `>_`）：
+
+- 侧栏的开合、宽度、位置、主题都由 better-sidebar 管理：本插件不再用 `position:fixed` 浮层、不再全局劫持 `Ctrl + \``，避免和侧栏自己的快捷键打架。
+- 一个会话只有一个终端页签（重复打开会聚焦已有页签）；页签被关闭时回收该工作区的 shell。
+- 终端核心完全不变：每个工作区一个常驻 PTY，切换会话、切走再切回页签都不会重建。
+- 想在「侧栏页签」与「独立浮层」两种形态之间切换：装 / 卸载 better-sidebar 即可，无需改代码，`Ctrl+R` 刷新页面后生效。
 
 ### 调试入口
 
@@ -234,11 +297,19 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
 ```json
 {
   "shell": "/bin/bash",
+  "shells": [
+    { "id": "cmd", "label": "cmd.exe（Windows 命令提示符）", "kind": "local" },
+    { "id": "powershell", "label": "Windows PowerShell", "kind": "local" },
+    { "id": "wsl:Ubuntu", "label": "WSL: Ubuntu", "kind": "wsl" },
+    { "id": "ssh:my-server", "label": "SSH: my-server", "kind": "ssh" }
+  ],
   "cwd": "/home/me/work",
   "busy": false,
   "helper": { "host": "127.0.0.1", "port": 3110, "alive": true, "version": "0.2.0" }
 }
 ```
+
+`shells` 是可选 shell 目录（`kind` 仅用于展示；`id` 才是 WS 查询参数里的值）。
 
 ### `GET /dsh-terminal/assets/<file>`
 
@@ -248,7 +319,7 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
 
 两者**协议完全相同**，浏览器半边优先连独立进程，失败才回退同源路由：
 
-- 查询参数：`cols` / `rows` 初始尺寸，`cwd` 终端起始目录。
+- 查询参数：`cols` / `rows` 初始尺寸，`cwd` 终端起始目录，`shell` 可选 shell id（先取 `/info` 的 `shells`，未知 id 回退默认；WSL/SSH 会忽略本地 `cwd`，由宿主换算目标目录）。
 - **浏览器 → 后端**（JSON 控制帧）：
   - `{"t":"i","d":"ls -l\r"}` —— 键盘输入，`d` 原样写进 PTY。
   - `{"t":"r","c":100,"r":30}` —— 终端尺寸变化。
@@ -273,7 +344,8 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
 - **双面包（dual-face plugin）**：`package.json` 里 `main` 指向宿主半边 `lib/index.js`，`dsh.client` 声明 + `exports["./client"]` 指向浏览器半边 `lib/client.js`，DSH 会自动把它投递到页面（URL 形如 `/plugins/<id>/client.js?rev=<内容哈希>`）。
 - **宿主半边**用 `ctx.webServer.register(...)` 挂 HTTP 路由、`registerUpgrade(...)` 挂 WebSocket 升级通道，用 `node-pty` 起真实 shell，把 PTY 与 `ws` 双向桥接；所有资源随 `ctx.effect` 精确回收。
 - **浏览器半边不是 ESM**：DSH 的浏览器插件走 `window.__ModuleLoader__.load({ id, factory: (require) => ... })`，`react` / `react-dom` 由宿主注入，所以插件自身零打包、零 CDN 依赖。
-- **槽位**：面板注册在 root 作用域的 `shell.overlay` 列表槽里，因此**每个会话**（包括新建会话页）都会渲染它。
+- **浏览器半边连到哪个地址**：Web 端页面本身就是 `http://127.0.0.1:<端口>`，用页面 origin 拼 `ws://` 即可；DSH **桌面端**的页面实际运行在 `dsh-app://app`（Electron 自定义协议）下，所以浏览器半边优先读宿主注入的 `globalThis.__DSH_TRANSPORT__.streamBaseUrl`（宿主 HTTP origin）再拼 WebSocket 地址——否则用 `location.host` 会得到 `ws://app/...`，连不上。
+- **槽位**：浮层形态下面板注册在 root 作用域的 `shell.overlay` 列表槽里，因此**每个会话**（包括新建会话页）都会渲染它；装了 better-sidebar 时改为注册侧栏页签。
 - **并排为什么能互不遮挡**：DSH 的 AppFrame 自带 `overflow: hidden` 且没有固定宽度，所以面板用 `react-dom` 的 `createPortal` 挂到 `document.body`（脱离裁剪），再给框架设 `margin-right`；框架内部用 `ResizeObserver` 感知到自己变窄，会自行重排三栏，因此终端与「详情栏拖拽把手」都不会错位。
 
 ### 终端为什么跑在独立进程里（延迟隔离）
@@ -302,6 +374,8 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
 端口可用 `DSH_TERMINAL_PORT` 改变。如果浏览器是通过端口转发访问 GUI，请把该端口一起转发；
 或在前端控制台执行 `localStorage.setItem('dsh-terminal-port', '<端口>')` 后刷新页面。
 
+> **Windows 说明**：`process.execPath` 在 DSH 里是 Electron 可执行文件，直接 spawn 会拉起第二个 GUI 实例，而裸 Node 又解析不到 `app.asar` 里的 `node-pty`，所以 Windows 下默认**跳过**独立终端进程，自动回退到宿主同源 PTY 路由（功能完整，只是没有上面的延迟隔离）。需要尝试时设 `DSH_TERMINAL_HELPER=1`，并自行保证 `node-pty` / `ws` 可解析。
+
 ---
 
 ## 已知限制与注意事项
@@ -313,22 +387,28 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
 5. **每一次连接就是一个真实 shell 进程**，权限与启动 `dsh web` 的用户相同。
 6. **只显示当前工作区的终端**：其它工作区的 shell 在后台常驻但不显示（没有多标签页 UI）。
 7. **`dsh web` 退出后独立终端进程仍在运行**（刻意设计：这样已有终端可以续用）。要一并停掉：`curl http://127.0.0.1:3110/shutdown`。
-8. 宿主半边（`lib/index.js`）的代码改动需要**重启 `dsh web`** 才生效（当前 `cordis.patch.yml` 里用的是裸包名，不能再靠改 `?rev=` 触发重载）；独立终端进程的改动只需重启该进程（或改版本号让宿主自动替换），刷新页面即可。
+8. 宿主半边（`lib/index.js`）的代码改动需要**重启 DSH** 才生效（`dsh web` 重启进程；桌面端退出重开）。DSH 0.2.2 起 `cordis.patch.yml` 的 `name` 不能用 `?rev=N` 查询串（会 `ERR_MODULE_NOT_FOUND`），所以没有「改 rev 热加载宿主半边」这条路了。独立终端进程的改动只需重启该进程（或改版本号让宿主自动替换），刷新页面即可。
 9. **读取剪贴板需要安全上下文**：右键粘贴走 `navigator.clipboard.readText()`，浏览器只在 `localhost` / `HTTPS` 下允许。若是通过普通 IP + HTTP 打开 GUI，右键会提示「请用 Ctrl+V」（xterm 自身支持浏览器粘贴事件，所以 Ctrl+V 一直可用）。复制侧优先用剪贴板 API，失败会退回 `execCommand('copy')`，一般不受影响。
 10. **`Ctrl+C 复制` 只在有选中内容时生效**：这是刻意的——没有选中时 `Ctrl+C` 仍然是 `^C`，否则就没法中断前台命令了。要复制整屏内容请先选中，或用 `Ctrl+Shift+C`（部分浏览器/终端模拟器的习惯键）。
 11. **环境变量改动要重启终端进程才生效**：PTY 的环境是在建连接时定下来的。`DSH_TERMINAL_KEEP_PAGER` 之类的开关改完，用 `curl http://127.0.0.1:3110/shutdown` 结束独立终端进程（宿主会在 10 秒内用新环境重新拉起），或直接重启 `dsh web`。注意：**改完 `lib/` 后不要只改 `HELPER_VERSION`/`VERSION` 里的版本号而不重启 `dsh web`** —— 运行中的旧宿主半边会用旧版本号去比对，导致独立终端进程被反复关掉重启（每隔 10 秒一次）。要升级版本号，请同时重启 `dsh web`。
+12. **接入 better-sidebar 后的形态差异**：接入后没有浮层专属的 `Ctrl + \`` 全局开合、宽度拖拽与折叠悬浮按钮（开合/宽度/位置由侧栏 UI 负责）；页签关闭会回收该工作区 shell。剪贴板三开关、主题、常驻 PTY 等行为不变。
 
 ---
 
 ## 开发与测试
 
-仓库自带两套测试：
+仓库自带三套测试：
 
 ```bash
 # 1) 行为回归：用最小 DOM/React 桩驱动真实的 lib/client.js
 #    覆盖「切工作区不关旧 WS、切回不重建、隐藏仍收数据、主题切换不重建」等
 #    不需要 dsh 在跑
 npm test
+
+# 1.1) 接入方式回归：stub 出 betterSidebar 服务，验证「装了 better-sidebar 时
+#      只注册侧栏页签、没装时只挂浮层面板」、页签描述符契约与 onClose 回收
+#      不需要 dsh 在跑
+npm run test:sidebar
 
 # 2) 真机集成：连上正在运行的 dsh web，真的开两个 PTY，
 #    验证互不顶掉、各自 cd 独立、断开后无 shell 泄漏
@@ -362,6 +442,8 @@ npm run test:pager
 rm -rf ~/.dsh/profiles/web/node_modules/@deepseek-ai/dsh-client-ui-terminal
 # 3) 刷新页面（或重启 dsh web）
 ```
+
+卸载本插件不影响 `dsh-better-sidebar` 与 DSH 内置终端：只是少了一个终端入口。
 
 ---
 
