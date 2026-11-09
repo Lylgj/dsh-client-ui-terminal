@@ -296,6 +296,7 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
 ```json
 {
   "shell": "C:\\Windows\\System32\\cmd.exe",
+  "env": "local",
   "shells": [
     { "id": "cmd", "label": "Windows：cmd", "kind": "local" },
     { "id": "powershell", "label": "Windows：PowerShell", "kind": "local" },
@@ -308,7 +309,7 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
 }
 ```
 
-`GET /info?cwd=...` 返回该工作区自动识别的 `shell` 与 `detectedShell`；`shells` 是可选终端目录（`id` 用作 WS 查询参数，`kind` 用于展示）。不指定 `shell` 参数时按工作区环境自动选择。
+`GET /info?cwd=...` 返回该工作区自动识别的 `shell`、`env` 与 `detectedShell`；`env` 是该工作区的默认环境（`local` / `wsl:<发行版>` / `ssh:<主机>`），前端据此只展示同一环境的后台终端。`shells` 是可选终端目录（`id` 用作 WS 查询参数，`kind` 用于展示）。不指定 `shell` 参数时按工作区环境自动选择。
 
 ### `GET /dsh-terminal/assets/<file>`
 
@@ -324,7 +325,8 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
   - `{"t":"r","c":100,"r":30}` —— 终端尺寸变化。
 - **后端 → 浏览器**：
   - PTY 输出**原始文本直通**（不是 JSON，直接写进 xterm）；独立进程会自适应合批。
-  - `{"t":"e","d":"..."}` —— 错误（例如超过会话上限、shell 启动失败）。
+  - `{"t":"s","env":"wsl:Ubuntu","kind":"wsl"}` —— 连接建立后的第一个控制帧，告知本会话所属环境（`local` / `wsl:<发行版>` / `ssh:<主机>`）；前端据此只展示同一环境的「后台终端」。
+  - `{"t":"e","d":"..."}` —— 错误（例如当前环境终端数量已达上限、shell 启动失败）。
   - 进程退出时先发一行灰色提示，再关闭连接。
 - 连接关闭即回收对应 shell 进程。
 
@@ -380,11 +382,11 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
 ## 已知限制与注意事项
 
 1. **终端是浏览器态的**：刷新页面会重建 PTY，滚动缓冲与正在跑的前台命令会丢。折叠面板**不会**（只是隐藏）。需要跨刷新持久化，请自己在 shell 里挂 `tmux` / `dtach`。
-2. **常驻上限 12 个 PTY**（跨工作区合计）。超过时新连接会收到错误帧，需要先关掉一些工作区的终端。
+2. **每个环境最多 10 个 PTY**（本机 `local`、每个 WSL 发行版、每台 SSH 主机各自独立计数）。超过时该环境的新连接会收到错误帧，需要先关掉该环境里的一些终端。
 3. **并排模式下的窄屏折叠**：见上文「面板宽度」。
 4. **无鉴权**：`/dsh-terminal/*` 没有任何登录校验（与 DSH 本地 GUI 其余部分一致，只监听回环地址）。**不要**把 `dsh web` 暴露到公网或不可信网络。
 5. **每一次连接就是一个真实 shell 进程**，权限与启动 `dsh web` 的用户相同。
-6. **只显示当前工作区的终端**：其它工作区的 shell 在后台常驻但不显示（没有多标签页 UI）。
+6. **后台终端只显示当前环境**：本机终端只列本机、WSL 终端只列该发行版、SSH 终端只列该主机；其它环境的 shell 仍在后台常驻，切到对应环境的终端就能看到。
 7. **`dsh web` 退出后独立终端进程仍在运行**（刻意设计：这样已有终端可以续用）。要一并停掉：`curl http://127.0.0.1:3110/shutdown`。
 8. 宿主半边（`lib/index.js`）的代码改动需要**重启 DSH** 才生效（`dsh web` 重启进程；桌面端退出重开）。DSH 0.2.2 起 `cordis.patch.yml` 的 `name` 不能用 `?rev=N` 查询串（会 `ERR_MODULE_NOT_FOUND`），所以没有「改 rev 热加载宿主半边」这条路了。独立终端进程的改动只需重启该进程（或改版本号让宿主自动替换），刷新页面即可。
 9. **读取剪贴板需要安全上下文**：右键粘贴走 `navigator.clipboard.readText()`，浏览器只在 `localhost` / `HTTPS` 下允许。若是通过普通 IP + HTTP 打开 GUI，右键会提示「请用 Ctrl+V」（xterm 自身支持浏览器粘贴事件，所以 Ctrl+V 一直可用）。复制侧优先用剪贴板 API，失败会退回 `execCommand('copy')`，一般不受影响。
