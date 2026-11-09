@@ -262,4 +262,38 @@ check("onClose 对不存在的会话不抛错", disposed === true);
 
 console.log(`\n结果：通过 ${pass}，失败 ${fail}`);
 // 显式退出：client.js 里的消息合批通道（MessageChannel）在 Node 下会保持事件循环。
+let nativeCloseCallback = null;
+let nativeHookRegistered = false;
+mod.apply({
+	...ctx3,
+	inject: (names, callback) => {
+		if (!names.includes("sidebarRight")) return;
+		callback({
+			get: () => ({ registerCloseHandler: (kind, handler) => {
+				nativeHookRegistered = kind === "dsh-terminal";
+				nativeCloseCallback = handler;
+				return () => {};
+			} }),
+			effect: (fn) => fn()
+		});
+	}
+});
+check("注册原生侧栏 × 关闭钩子", nativeHookRegistered);
+nativeCloseCallback?.("unknown-session", { kind: "dsh-terminal" });
+check("原生关闭未知会话安全", typeof nativeCloseCallback === "function");
+// 执行页签组件本体，而非只检查 descriptor，防止渲染期 ReferenceError。
+react.useState = (initial) => [typeof initial === "function" ? initial() : initial, () => {}];
+react.useRef = (initial) => ({ current: initial });
+react.useCallback = (fn) => fn;
+react.useEffect = () => {};
+let tabRendered = false;
+try {
+	const vnode = descriptor.component({ scope: { sessionId: "render-test", cwd: "D:\\test" }, tab: {}, visible: true });
+	const tree = vnode.type(vnode.props);
+	tabRendered = tree?.props?.["data-dsh-terminal-embed"] === "1";
+} catch (error) {
+	console.error(error);
+}
+check("页签组件实际渲染无 ReferenceError", tabRendered);
+console.log(`\n最终结果：通过 ${pass}，失败 ${fail}`);
 process.exit(fail === 0 ? 0 : 1);
