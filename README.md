@@ -19,7 +19,7 @@
 | 每个工作区一个常驻 shell | 以会话的 `cwd` 为键；切换会话不重建、不顶掉别的 shell |
 | 两种布局 | **并排**（DSH 让出右侧空间，互不遮挡）/ **浮层**（终端盖在页面上方） |
 | 明暗主题 | 浅色（白底深字）/ 暗色（Catppuccin Mocha 系），切换不重建 shell |
-| 多 shell 选择 | 工具条下拉框可切 cmd / Windows PowerShell / pwsh / WSL 各发行版 / `~/.ssh/config` 里的主机；默认按工作目录自动匹配（WSL 路径、`.remote-ssh.json` 远程工作区） |
+| 多 shell 选择 | 按工作区自动识别环境：Windows 本地打开 cmd，WSL 打开对应发行版 bash，远程工作区通过 SSH 打开远端终端；下拉显示识别结果，也可手动切换 |
 | 宽度可调 | 左侧边缘可拖动，280 ~ 1100 px |
 | 无 CDN、无新端口、无新进程 | xterm 资源由 DSH 自己的 webServer 同源下发；后端挂在既有 webServer 上 |
 | 复制/粘贴可配 | **Ctrl+C 复制**、**选中即复制**、**右键粘贴** 三个独立开关，可任意组合，选择持久化 |
@@ -106,7 +106,7 @@
 
 - 已安装 DSH，`dsh web` 能正常跑起来（默认地址 `http://127.0.0.1:3080`）。
 - Node.js ≥ 20（本插件在 Node 24 上验证通过）。
-- Linux、macOS 或 Windows。宿主半边依赖 `node-pty`：Linux/macOS 需要本机能编译原生模块；Windows 走 DSH 自带的 `node-pty`（conpty），用 `cmd.exe` 起 shell（可用 `DSH_TERMINAL_SHELL` 覆盖）。
+- Linux、macOS 或 Windows。宿主半边依赖 `node-pty`：Linux/macOS 需要本机能编译原生模块；Windows 走 DSH 自带的 `node-pty`（conpty），默认用 `cmd.exe` 起 shell（可用 `DSH_TERMINAL_SHELL` 覆盖）。
 - **独立终端进程**（`lib/helper.js`，提供按键回显隔离）默认只在 Linux/macOS 启动；Windows 下自动跳过、回退到宿主同源 PTY 路由（功能完整，只是失去那层隔离）。
 - 知道你的 profile 目录，默认是 `~/.dsh/profiles/web`。
 
@@ -226,18 +226,17 @@ npm install --omit=dev
 
 点 `浅色` / `暗色` 切换。只改 xterm 的配色，**不会重建 shell**，也就不会中断正在跑的命令。选择同样记在 `localStorage`。
 
-### 选择 shell（cmd / PowerShell / WSL / SSH）
+### 自动识别环境与选择 shell
 
-工具条右侧有一个 shell 下拉框，列表由宿主半边探测生成，每次连接前可切换：
+工具条按工作区自动识别环境，并显示对应的实际终端名称，不再提供「默认 shell」选项。Windows 本地路径使用 cmd，WSL 路径使用对应发行版 bash，`.remote-ssh.json` 远程工作区使用 SSH；Linux/macOS 使用登录 shell。仍可手动切换以下终端：
 
 | 选项 | 来源 |
 | --- | --- |
-| 默认 shell | 不指定具体程序：WSL 的 `\\wsl.localhost\<发行版>\...` 路径 → 该发行版 bash；含 `.remote-ssh.json` 的远程工作区 → ssh 到那台主机；其余 → 本机 `cmd.exe`（Windows）或登录 shell（POSIX） |
-| cmd.exe | 固定项（Windows） |
-| Windows PowerShell | PATH 里探测到 `powershell.exe` 才列出 |
-| pwsh | PATH 里探测到 `pwsh.exe` 才列出（PowerShell 7） |
-| WSL: `<发行版>` | `wsl.exe -l -q` 列出的已注册发行版；Windows 路径会自动转成 `/mnt/d/...` 并 `--cd` 进去 |
-| SSH: `<主机>` | 解析 `~/.ssh/config` 的 `Host` 行（跳过通配符与 `!` 否定项），以 `ssh -tt <主机>` 启动 |
+| Windows：cmd | 固定项（Windows），起 `cmd.exe` |
+| Windows：PowerShell | PATH 里探测到 `powershell.exe` 才列出 |
+| Windows：pwsh | PATH 里探测到 `pwsh.exe` 才列出（PowerShell 7） |
+| WSL：`<发行版>` | `wsl.exe -l -q` 列出的已注册发行版；Windows 路径会自动转成 `/mnt/d/...` 并 `--cd` 进去 |
+| SSH：`<主机>` | 解析 `~/.ssh/config` 的 `Host` 行（跳过通配符与 `!` 否定项），以 `ssh -tt <主机>` 启动 |
 
 选择结果按工作区记在 `localStorage` 的 `dsh.terminal.shells`（JSON：会话键 → shell id），切回该工作区时沿用；
 切换 shell 会重连该工作区的宿主 PTY（原来的 shell 被结束，屏幕上的历史输出保留，新 shell 从新提示符开始）。
@@ -296,20 +295,20 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
 
 ```json
 {
-  "shell": "/bin/bash",
+  "shell": "C:\\Windows\\System32\\cmd.exe",
   "shells": [
-    { "id": "cmd", "label": "cmd.exe（Windows 命令提示符）", "kind": "local" },
-    { "id": "powershell", "label": "Windows PowerShell", "kind": "local" },
-    { "id": "wsl:Ubuntu", "label": "WSL: Ubuntu", "kind": "wsl" },
-    { "id": "ssh:my-server", "label": "SSH: my-server", "kind": "ssh" }
+    { "id": "cmd", "label": "Windows：cmd", "kind": "local" },
+    { "id": "powershell", "label": "Windows：PowerShell", "kind": "local" },
+    { "id": "wsl:Ubuntu", "label": "WSL：Ubuntu", "kind": "wsl" },
+    { "id": "ssh:my-server", "label": "SSH：my-server", "kind": "ssh" }
   ],
-  "cwd": "/home/me/work",
+  "cwd": "D:\\work\\project",
   "busy": false,
-  "helper": { "host": "127.0.0.1", "port": 3110, "alive": true, "version": "0.2.0" }
+  "helper": { "host": "127.0.0.1", "port": 3110, "alive": false, "version": null }
 }
 ```
 
-`shells` 是可选 shell 目录（`kind` 仅用于展示；`id` 才是 WS 查询参数里的值）。
+`GET /info?cwd=...` 返回该工作区自动识别的 `shell` 与 `detectedShell`；`shells` 是可选终端目录（`id` 用作 WS 查询参数，`kind` 用于展示）。不指定 `shell` 参数时按工作区环境自动选择。
 
 ### `GET /dsh-terminal/assets/<file>`
 
@@ -392,6 +391,7 @@ __DSH_TERMINAL__.close()          // 收起（不杀 shell）
 10. **`Ctrl+C 复制` 只在有选中内容时生效**：这是刻意的——没有选中时 `Ctrl+C` 仍然是 `^C`，否则就没法中断前台命令了。要复制整屏内容请先选中，或用 `Ctrl+Shift+C`（部分浏览器/终端模拟器的习惯键）。
 11. **环境变量改动要重启终端进程才生效**：PTY 的环境是在建连接时定下来的。`DSH_TERMINAL_KEEP_PAGER` 之类的开关改完，用 `curl http://127.0.0.1:3110/shutdown` 结束独立终端进程（宿主会在 10 秒内用新环境重新拉起），或直接重启 `dsh web`。注意：**改完 `lib/` 后不要只改 `HELPER_VERSION`/`VERSION` 里的版本号而不重启 `dsh web`** —— 运行中的旧宿主半边会用旧版本号去比对，导致独立终端进程被反复关掉重启（每隔 10 秒一次）。要升级版本号，请同时重启 `dsh web`。
 12. **接入 better-sidebar 后的形态差异**：接入后没有浮层专属的 `Ctrl + \`` 全局开合、宽度拖拽与折叠悬浮按钮（开合/宽度/位置由侧栏 UI 负责）；页签关闭会回收该工作区 shell。剪贴板三开关、主题、常驻 PTY 等行为不变。
+13. **Windows 本地环境默认使用 cmd**；WSL 和远程工作区自动使用对应环境的终端。Windows 下默认走宿主同源 PTY，不启用独立 helper。
 
 ---
 
