@@ -3,7 +3,7 @@
 	"version": "0.3.0",
 	"private": true,
 	"type": "module",
-	"description": "DSH Web 终端插件：装了 dsh-better-sidebar 时接入其侧栏（终端的侧栏页签），没装时以右侧常驻面板独立运行；宿主半边提供同源 PTY WebSocket。",
+	"description": "DSH Web 终端插件：默认接入 DSH 官方右侧栏（终端页签 + 开始页入口），也可作为 dsh-better-sidebar 页签或独立浮层面板运行；宿主半边提供同源 PTY WebSocket，支持 cmd / PowerShell / WSL / SSH。",
 	"license": "MIT",
 	"main": "lib/index.js",
 	"icon": "./icon.svg",
@@ -31,6 +31,7 @@
 		"xterm",
 		"node-pty",
 		"web-terminal",
+		"sidebar-right",
 		"better-sidebar"
 	],
 	"engines": {
@@ -60,9 +61,10 @@
 		"THIRD-PARTY-NOTICES.md"
 	],
 	"scripts": {
-		"test": "node tests/terminal-behavior.mjs && node tests/better-sidebar-integration.mjs",
+		"test": "node tests/terminal-behavior.mjs && node tests/better-sidebar-integration.mjs && node tests/official-sidebar-integration.mjs",
 		"test:behavior": "node tests/terminal-behavior.mjs",
 		"test:sidebar": "node tests/better-sidebar-integration.mjs",
+		"test:official": "node tests/official-sidebar-integration.mjs",
 		"test:pty": "node tests/terminal-pty.mjs",
 		"test:pager": "node tests/terminal-pager.mjs"
 	},
