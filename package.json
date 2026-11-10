@@ -1,6 +1,6 @@
 {
 	"name": "@deepseek-ai/dsh-client-ui-terminal",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"private": true,
 	"type": "module",
 	"description": "DSH Web 终端插件：装了 dsh-better-sidebar 时接入其侧栏（终端的侧栏页签），没装时以右侧常驻面板独立运行；宿主半边提供同源 PTY WebSocket。",
@@ -33,6 +33,15 @@
 	"engines": {
 		"node": ">=20"
 	},
+	"files": [
+		"lib",
+		"assets",
+		"cordis.patch.yml",
+		"examples",
+		"README.md",
+		"LICENSE",
+		"THIRD-PARTY-NOTICES.md"
+	],
 	"scripts": {
 		"test": "node tests/terminal-behavior.mjs && node tests/better-sidebar-integration.mjs",
 		"test:behavior": "node tests/terminal-behavior.mjs",
@@ -41,6 +50,9 @@
 		"test:pager": "node tests/terminal-pager.mjs"
 	},
 	"dsh": {
+		"bundle": {
+			"patch": "./cordis.patch.yml"
+		},
 		"client": {
 			"platform": "web",
 			"inject": [

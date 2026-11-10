@@ -1,4 +1,7 @@
-# 示例：把本插件注册进 DSH 的 web profile
+# 示例：手工安装时把本插件注册进 DSH profile
+#
+# 注意：按 README「方式一」用 `dsh plugin add file:<本仓库>` 安装时，
+# 本包自带的 cordis.patch.yml 会自动插入同样的行，不需要再手改这个文件。
 #
 # 文件位置：<profile 目录>/cordis.patch.yml（默认 ~/.dsh/profiles/web/cordis.patch.yml）
 # 该文件是「用户 patch 层」，在 profile 的所有 bundle 层之后应用；

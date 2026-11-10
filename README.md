@@ -1,11 +1,11 @@
 # dsh-client-ui-terminal
 
-给 **DSH（DeepSeek Harness）Web 界面**加一个**右侧常驻终端面板**：直接在 `http://127.0.0.1:3080` 的页面上敲 shell 命令，不用切到外部终端窗口。
+给 **DSH（DeepSeek Harness）Web 界面**加一个**右侧常驻终端面板**：直接在 DSH 页面（`http://127.0.0.1:<端口>`，`dsh web` 默认 3080）上敲 shell 命令，不用切到外部终端窗口。
 
 **每个工作区各留一个真正常驻的 PTY** —— 切到别的会话再切回来，shell 不会被重建，滚动缓冲也不丢。
 
-> 这是一个**第三方本地插件**，不走 npm 分发。用法是把本仓库放进 DSH profile 的 `node_modules/`，再在 profile 的 `cordis.patch.yml` 里加一条 `insert` 条目。
-> 包名沿用 `@deepseek-ai/dsh-client-ui-terminal` 只是为了让安装路径与本机既有安装保持一致；它**不是** DeepSeek 官方包。`package.json` 里已设 `private: true`，防止误发布到 npm。
+> 这是一个**第三方插件**，不是 DeepSeek 官方包；包名沿用 `@deepseek-ai/dsh-client-ui-terminal` 只是为了与既有安装路径一致，`package.json` 里已设 `private: true`，没有发布到 npm。
+> 它按生态插件标准形态分发：自带 bundle patch（`cordis.patch.yml`），推荐用 `dsh plugin --profile <profile> add file:<本仓库路径>` 安装（会自动装依赖并插入插件行）。网络受限或无法编译 `node-pty` 时，也可以用「复制到 profile `node_modules` + 手写一条 `insert`」的离线方式，两种方式见 [安装](#安装)。
 
 > **可选接入 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)**：profile 里装了它时，本插件会把终端注册成它的**侧栏页签**（不再额外浮一个面板）；没装就保持下面描述的独立面板形态。两种安装方式共用同一套终端核心，不需要改代码，也不修改 better-sidebar 本体。
 
@@ -102,106 +102,129 @@
 
 ## 安装
 
+本包按 DSH 生态插件的标准形态分发：`package.json` 声明了 `dsh.bundle`，包内
+`cordis.patch.yml` 会在 profile 组合时自动插入宿主入口（`ui-terminal`）。
+所以**标准安装不需要手改 profile 的 `cordis.patch.yml`**。
+
 ### 前置条件
 
-- 已安装 DSH，`dsh web` 能正常跑起来（默认地址 `http://127.0.0.1:3080`）。
+- DSH `0.2.2-rc.1` 或更新（桌面端或 `dsh web` 都可以）。
 - Node.js ≥ 20（本插件在 Node 24 上验证通过）。
-- Linux、macOS 或 Windows。宿主半边依赖 `node-pty`：Linux/macOS 需要本机能编译原生模块；Windows 走 DSH 自带的 `node-pty`（conpty），默认用 `cmd.exe` 起 shell（可用 `DSH_TERMINAL_SHELL` 覆盖）。
-- **独立终端进程**（`lib/helper.js`，提供按键回显隔离）默认只在 Linux/macOS 启动；Windows 下自动跳过、回退到宿主同源 PTY 路由（功能完整，只是失去那层隔离）。
-- 知道你的 profile 目录，默认是 `~/.dsh/profiles/web`。
+- 本包没有发布到 npm（`private: true`），从**本地目录**安装：先把仓库放在任意位置，
+  例如 `D:\lgj\dsh-client-ui-terminal`。
+- `node-pty`、`ws` 两个依赖由安装命令装进 profile。Linux/macOS 的 `node-pty` 需要本机
+  能编译原生模块（或命中上游预编译包）；Windows 走 node-pty 的 conpty（npm 版自带
+  `conpty.dll` / `OpenConsole.exe`）。默认用 `cmd.exe` 起 shell（`DSH_TERMINAL_SHELL` 可覆盖）。
+- **独立终端进程**（`lib/helper.js`，把按键回显隔离在宿主进程之外）只在 Linux/macOS
+  启动；Windows 自动跳过，回退到宿主同源 PTY 路由（功能完整，只是少一层隔离）。
 
-### 步骤
+### 方式一：标准安装（推荐）
 
 ```bash
-# 1) 把仓库克隆到 profile 的 node_modules 下（目录名要与包名一致）
-PROFILE=~/.dsh/profiles/web
+# 1) 先彻底退出 DSH 桌面端（用 dsh web 的话先停掉那个进程）
+#    profile 名：桌面端是 desktop，dsh web 默认是 web
+dsh plugin --profile desktop add file:D:/lgj/dsh-client-ui-terminal
+
+# 2) 重开 DSH（桌面端完全退出再打开；dsh web 重启进程），然后刷新页面
+```
+
+这条命令等价于手动做完三件事：
+
+1. 用 pnpm 把本包装进 profile（写入 profile `package.json` 的 `dependencies`）；
+2. 因为本包声明了 `dsh.bundle`，插件管理器把它加入 `dsh.profile.bundles`；
+3. 组合 profile 时应用本包的 `cordis.patch.yml`，自动插入 `ui-terminal` 行。
+
+装完**重开 DSH** 并刷新页面：装了 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)
+就是侧栏「终端」页签，没装就是右侧浮层终端面板。
+
+验证：
+
+```bash
+# 桌面端端口以本次启动的 GUI 地址为准
+curl -s http://127.0.0.1:<端口>/dsh-terminal/info
+# {"shell":"C:\\Windows\\system32\\cmd.exe","cwd":"...","busy":false,"shells":[...],"env":"local"}
+```
+
+### 方式二：离线手工安装（无网络 / 无法编译 node-pty）
+
+仓库开发时的安装方式，在 DSH 0.2.2-rc.1 桌面端（Windows）实测可用：
+
+```bash
+# 1) 复制仓库到 profile 的 node_modules 下（目录名必须与包名一致）
+PROFILE=~/.dsh/profiles/web   # 桌面端是 ~/.dsh/profiles/desktop
 mkdir -p "$PROFILE/node_modules/@deepseek-ai"
 git clone https://github.com/Lylgj/dsh-client-ui-terminal.git \
   "$PROFILE/node_modules/@deepseek-ai/dsh-client-ui-terminal"
 ```
 
+2. 给插件补 `node-pty`（DSH 安装树不会替插件解析它）。Windows 桌面端从 DSH 安装目录
+   复制一份到 `<插件目录>\node_modules\node-pty`：
+   - JS 部分在 `DeepSeek Harness\resources\app.asar` 的 `dsh/node_modules/node-pty/`；
+   - 原生部分（conpty）在 `...\resources\app.asar.unpacked\dsh\node_modules\node-pty\`
+     下的 `build/Release/conpty` 与 `prebuilds/win32-x64`。
+   实测版本 `1.2.0-beta.15`。
+
 ```bash
-# 2) 在 profile 的 cordis.patch.yml 末尾追加下面这段
-#    文件不存在就新建；已存在就直接追加（顶层是 YAML 数组）
+# 3) 在 profile 的 cordis.patch.yml 末尾追加（内容同 examples/cordis.patch.yml）
 cat >> ~/.dsh/profiles/web/cordis.patch.yml <<'YAML'
 
-# DSH Web 右侧常驻终端面板（宿主半边）
+# DSH 终端插件（宿主半边）
 - insert:
     - id: ui-terminal
       name: './node_modules/@deepseek-ai/dsh-client-ui-terminal/lib/index.js'
 YAML
 ```
 
-```bash
-# 3) 让配置生效
-#    cordis.patch.yml 受 Cordis HMR 监视，保存后通常立即生效；
-#    若没生效（例如首次新增条目），重启一次 dsh web 即可。
-```
+4. **完全退出并重开** DSH。
 
-> **注意：`name` 里不要带 `?rev=N`。** DSH 0.2.2 起 loader 按字面 URL 导入插件入口，
-> 查询串会被当成文件名的一部分，报 `ERR_MODULE_NOT_FOUND`（`.../lib/index.js?rev=1` 找不到）。
-> 旧版 DSH 可以靠 `?rev=N` 制造新 URL 来热加载宿主半边，0.2.2 不再适用——宿主半边的改动
-> 需要重启 DSH（`dsh web` 重起进程；桌面端退出重开）。
+> 两种方式二选一。如果之前按方式二手工装过、现在改用方式一，先把 profile
+> `cordis.patch.yml` 里那条手工 `ui-terminal` 删掉再安装 —— 同一个 id 插入两次会冲突。
+> 另外 `name` 里**不要带 `?rev=N`**：DSH 0.2.2 的 loader 把查询串当成文件名的一部分，
+> 会报 `ERR_MODULE_NOT_FOUND`；宿主半边的改动本来就需要重启 DSH 才生效。
 
-```bash
-# 4) 验证：应返回一段 JSON
-curl -s http://127.0.0.1:3080/dsh-terminal/info
-# {"shell":"/bin/bash","cwd":"...","busy":false}
-```
+### 安装到 DSH 桌面端
 
-最后**刷新浏览器页面**（http://127.0.0.1:3080），右侧就会出现终端面板。
-
-### 在 DSH 桌面端（Electron）安装
-
-桌面端的 profile 目录不同，而且启动方式没有 `dsh web` 的控制台：
+桌面端没有 `dsh web` 的控制台，profile 目录也不同：
 
 - Windows：`%USERPROFILE%\.dsh\profiles\desktop`
-- macOS：`~/.dsh/profiles/desktop`
-- Linux：`~/.dsh/profiles/desktop`
+- macOS / Linux：`~/.dsh/profiles/desktop`
 
-把仓库复制到 `<profile>\node_modules\@deepseek-ai\dsh-client-ui-terminal`，在 `<profile>\cordis.patch.yml` 里追加与上面相同的 `insert`（Windows 路径同样用正斜杠即可），然后**完全退出并重开 DSH 桌面端**。
+`dsh plugin --profile desktop ...` 同样可用（桌面端 profile 由 Electron 应用管理，
+安装前先完全退出应用）；方式二就是桌面端的手工路径。
 
-桌面端插件加载失败时页面不会报错（错误只写宿主日志，GUI 里看不到）。排查方法：在 DeepSeek Harness 里打开插件管理，把 `ui-terminal` 先禁用再启用——失败时返回值里会带具体的导入错误（例如 `ERR_MODULE_NOT_FOUND`）。
+加载失败在 GUI 里看不到具体错误（只写宿主日志）。排查：打开插件管理，把 `ui-terminal`
+先禁用再启用 —— 返回的诊断会指出原因，例如
+`failed to import: ... ERR_MODULE_NOT_FOUND`（路径写错、`?rev=N` 残留、少了 `node-pty`）。
 
 ### 可选：接入 dsh-better-sidebar
 
-profile 里已经装了 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时，本插件会自动把终端注册成**它的侧栏页签**，不需要改任何代码 —— **不要**修改 better-sidebar 的包内容，只动 profile 的 `cordis.patch.yml`。
+profile 里已经装了 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 时，本插件会自动把终端注册成**它的侧栏页签**，不需要改任何代码，也**不要**修改 better-sidebar 的包内容。
 
-加载顺序建议：把本插件那条 `ui-terminal` 的 `insert` 放在 better-sidebar 的 `insert` **之后**（同一文件里顺序越靠后越晚加载）。插件在 `apply` 里用 `ctx.get('betterSidebar')` 探测；若服务还没就绪，它也会在服务出现时自动切到页签形态，所以顺序不是硬性要求。
+加载顺序建议：让本插件在 better-sidebar 之后加载（方式一安装时，插件管理器会把本插件追加进 `dsh.profile.bundles`，天然排在后面；方式二手工安装时，把 profile 里 `ui-terminal` 那条 `insert` 放在 better-sidebar 的 `insert` **之后**）。插件在 `apply` 里用 `ctx.get('betterSidebar')` 探测；若服务还没就绪，它也会在服务出现时自动切到页签形态，所以顺序不是硬性要求。
 
 验证与回退：
 
 - 刷新页面后右侧栏出现「终端」页签 → 接入成功；此时不会再出现独立浮层面板。
-- 删掉 `ui-terminal` 的 `insert` 并刷新 → 回到独立浮层面板形态（终端仍然能用）。
-- 卸载 better-sidebar 并刷新 → 同理自动回到浮层形态，本插件不受影响。
-
-### 关于依赖
-
-**通常不需要单独装依赖。** `node-pty` 与 `ws` 在 DSH 的安装树里都有，DSH 的安装依赖解析会尽量把它们提供给 profile 里的插件。不过桌面端（Electron + `app.asar`）的模块解析更严格：本机在 DSH 0.2.2-rc.1 上实测，插件要能解析到 `node-pty` 才会加载，所以桌面端的安装副本里自带了 `node_modules/node-pty`（从 DSH 自带的那份复制，含 conpty 原生文件）。若你的环境里面板报「无法启动 shell」或插件加载失败，在**插件目录内**补装/复制一份即可：
-
-只有当你的 DSH 环境里确实找不到这两个模块（表现为面板报「无法启动 shell」）时，才在**插件目录内**补装：
-
-```bash
-cd ~/.dsh/profiles/web/node_modules/@deepseek-ai/dsh-client-ui-terminal
-npm install --omit=dev
-```
-
-### ⚠️ 不要在 profile 根目录装依赖
-
-**不要**在 `~/.dsh/profiles/web/` 下执行 `pnpm install`、`npm install`，也不要执行 `dsh plugin add / remove`。
-
-本插件是「手工放进 `node_modules`」的，并未写进 profile 的 `package.json` 依赖。包管理器会把这种未声明的目录判定为 **extraneous 并直接删除**，等于把终端功能删掉。（`dsh web` 启动本身不跑包管理器，所以正常启动是安全的。）
+- 卸掉 better-sidebar 并刷新 → 自动回到独立浮层面板形态（终端仍然能用）。
+- 想临时不接入：删掉 `ui-terminal` 的 insert 行（手工安装时）或禁用该行。
 
 ---
 
 ## 配置：`cordis.patch.yml` 里那条 `insert` 是什么意思
 
-`cordis.patch.yml` 是 profile 的「用户 patch 层」，在 profile 的所有 bundle 层之后应用，顶层是一个 loader patch 条目数组。上面那条 `insert` 就是往插件列表里插入一个条目：
+`cordis.patch.yml` 是 DSH loader 的「补丁层」。本包自带一份（仓库根目录），内容是一条 `insert`：
 
-- `id: ui-terminal`：条目标识。
-- `name:` 用**相对路径**而不是裸包名。相对路径在 profile 作用域里解析到插件入口（`package.json` 的 `main`），路径里**不要带查询串**：DSH 0.2.2 的 loader 会把 `?rev=N` 当成文件名的一部分，报 `ERR_MODULE_NOT_FOUND`。（旧版 DSH 的 loader 以解析后的 URL 作为缓存键，可以用 `?rev=N` 制造新 URL 来热加载；0.2.2 起不再适用，宿主半边的改动需要重启 DSH。）
+```yaml
+- insert:
+    - id: ui-terminal
+      name: './lib/index.js'
+```
 
-（浏览器半边不需要这样：它的 URL 自带内容哈希，刷新页面就是最新的。）
+- 方式一安装时，DSH 会在组合 profile 时自动应用它，你不需要动手；方式二安装时，这一行由你自己写进 profile 的 `cordis.patch.yml`（`name` 换成本机安装路径）。
+- `id: ui-terminal` 是条目标识：想临时停用，可在更靠后的 patch 层写 `- id: ui-terminal` + `disabled: true`。
+- `name` 用相对路径：DSH 会把它锚定到「声明它的 patch 文件所在目录」（`anchorInsertedPluginNames`），所以与安装目录名无关；手工安装时写相对 profile 的路径即可。
+- **不要带 `?rev=N`**：DSH 0.2.2 的 loader 按字面 URL 导入，查询串会被当成文件名的一部分，报 `ERR_MODULE_NOT_FOUND`。
+- 浏览器半边不需要补丁：它的模块 URL 自带内容哈希，刷新页面就是最新的。
 
 ---
 
@@ -432,20 +455,23 @@ npm run test:pager
 | `lib/client.js`、`assets/*` | 刷新页面（浏览器半边 URL 带内容哈希，无需清缓存） |
 | `lib/helper.js`（独立终端进程） | 重启该进程（`curl http://127.0.0.1:3110/shutdown` 后重新拉起），或改 `VERSION` 让宿主自动替换；**不需要重启 dsh** |
 | `lib/index.js`（宿主半边） | **重启 `dsh web`** |
-| `package.json` 的 `dsh.client` 声明 | 重启 `dsh web` |
+| `package.json` 的 `dsh.client` / `dsh.bundle` 声明 | 重启 `dsh web`（桌面端重开应用） |
 
 ---
 
 ## 卸载
 
 ```bash
-# 1) 从 cordis.patch.yml 里删掉那条 ui-terminal 的 insert
+# 方式一（标准安装）：
+dsh plugin --profile desktop remove @deepseek-ai/dsh-client-ui-terminal
+
+# 方式二（手工安装）：
+# 1) 从 profile 的 cordis.patch.yml 里删掉那条 ui-terminal 的 insert
 # 2) 删除插件目录
 rm -rf ~/.dsh/profiles/web/node_modules/@deepseek-ai/dsh-client-ui-terminal
-# 3) 刷新页面（或重启 dsh web）
 ```
 
-卸载本插件不影响 `dsh-better-sidebar` 与 DSH 内置终端：只是少了一个终端入口。
+完成后重开 DSH（或刷新页面）。卸载本插件不影响 `dsh-better-sidebar` 与 DSH 内置终端：只是少了一个终端入口。
 
 ---
 

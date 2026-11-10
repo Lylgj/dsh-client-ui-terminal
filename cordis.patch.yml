@@ -1,0 +1,16 @@
+# 本包作为 profile bundle 安装时（`dsh plugin add ...`），DSH 会在组合 profile 时
+# 自动应用本文件，把宿主入口插入 loader 树 —— 因此不需要手动改 profile 的
+# cordis.patch.yml。
+#
+# `name` 用 PATH-RELATIVE 是故意的：DSH 会把相对 name 锚定到「声明它的这个 patch
+# 文件所在目录」（anchorInsertedPluginNames），所以无论安装目录叫
+# `@deepseek-ai/dsh-client-ui-terminal` 还是别的名字，它始终加载本包自己的入口。
+# 换成裸包名则必须与安装目录同名。
+#
+# 手工安装（见 README「方式二」）时，等价的一行是：
+#   - id: ui-terminal
+#     name: './node_modules/@deepseek-ai/dsh-client-ui-terminal/lib/index.js'
+# 两种安装方式二选一，不要同时存在（同一个 id 会插入两次）。
+- insert:
+    - id: ui-terminal
+      name: './lib/index.js'
