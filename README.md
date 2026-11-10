@@ -34,20 +34,31 @@
 
 - DSH `0.2.2-rc.1` 或更新（桌面端或 `dsh web`）。
 - Node.js ≥ 20（在 Node 24 上验证）。
-- 本包未发布到 npm，从**本地目录**安装（先把仓库放到任意位置）。
+- 本包未发布到 npm，可直接从 GitHub 安装，或把仓库放到本地任意位置后从目录安装。
 - `node-pty`/`ws` 由安装命令装进 profile。Windows 用 npm 版 `node-pty` 自带的 conpty；Linux/macOS 需要本机能编译原生模块（或命中预编译包）。
 
-### 方式一：标准安装（推荐）
+### 方式一：从 GitHub 直接安装（推荐）
 
 ```bash
 # 先彻底退出 DSH 桌面端（dsh web 则停掉进程）
 # profile 名：桌面端 desktop，dsh web 默认 web
-dsh plugin --profile desktop add file:D:/lgj/dsh-client-ui-terminal
+dsh plugin --profile desktop add github:Lylgj/dsh-client-ui-terminal
+
+# 也可以写完整地址：
+# dsh plugin --profile desktop add https://github.com/Lylgj/dsh-client-ui-terminal
 
 # 完成后重开 DSH，刷新页面
 ```
 
-这条命令会自动完成三件事：
+安装前插件管理器会先 `git ls-remote` 预检仓库（默认超时 5 秒，可在 profile 里调大 `plugin-manager.githubConnectionTimeoutMs`），需要本机有 `git`、能访问 GitHub。
+
+### 方式二：从本地目录安装（开发/离线）
+
+```bash
+dsh plugin --profile desktop add file:D:/lgj/dsh-client-ui-terminal
+```
+
+两种 `dsh plugin add` 都会自动完成三件事：
 
 1. 用 pnpm 把本包装进 profile（写入 `dependencies`）；
 2. 因为 `package.json` 声明了 `dsh.bundle`，插件管理器把它加入 `dsh.profile.bundles`；
@@ -55,7 +66,7 @@ dsh plugin --profile desktop add file:D:/lgj/dsh-client-ui-terminal
 
 **不需要手改 profile 的任何文件。**
 
-### 方式二：离线手工安装
+### 方式三：离线手工安装
 
 无网络，或 `node-pty` 装不上时使用（仓库开发时就是这种方式）：
 
@@ -83,8 +94,10 @@ git clone https://github.com/Lylgj/dsh-client-ui-terminal.git \
 
 4. **完全退出并重开** DSH。
 
-> 两种方式二选一。之前手工装过、现在改方式一时，先删掉手工那条 `ui-terminal`，否则同一 id 插入两次会冲突。
+> 三种方式任选其一。之前手工装过、现在改用 `dsh plugin add` 时，先删掉手工那条 `ui-terminal`，否则同一 id 插入两次会冲突。
 > `name` 里**不要带 `?rev=N`**：DSH 0.2.2 的 loader 把它当成文件名的一部分，会报 `ERR_MODULE_NOT_FOUND`。
+>
+> 当前是自用插件（`private: true`），未发布 npm、也未申请官方/社区收录。`package.json` 的元数据（`dsh.bundle`、`dsh.client`、`engines.dsh`、`peerDependencies`、`icon` 等）已按 DSH 官方插件形态准备，之后要发布时把 `private` 改为 `false` 即可。
 
 ### 验证
 
@@ -254,10 +267,10 @@ npm run test:pager      # 真机：分页器行为（PAGER 清洗、less 翻页/
 ## 卸载
 
 ```bash
-# 方式一（标准安装）
+# 用 dsh plugin 安装的（GitHub / 本地目录都适用）
 dsh plugin --profile desktop remove @deepseek-ai/dsh-client-ui-terminal
 
-# 方式二（手工安装）：删掉 profile cordis.patch.yml 里的 ui-terminal insert，
+# 手工安装的：删掉 profile cordis.patch.yml 里的 ui-terminal insert，
 # 再删除插件目录
 rm -rf ~/.dsh/profiles/web/node_modules/@deepseek-ai/dsh-client-ui-terminal
 ```

@@ -6,9 +6,11 @@
 	"description": "DSH Web 终端插件：装了 dsh-better-sidebar 时接入其侧栏（终端的侧栏页签），没装时以右侧常驻面板独立运行；宿主半边提供同源 PTY WebSocket。",
 	"license": "MIT",
 	"main": "lib/index.js",
+	"icon": "./icon.svg",
 	"exports": {
 		".": "./lib/index.js",
 		"./client": "./lib/client.js",
+		"./cordis.patch.yml": "./cordis.patch.yml",
 		"./package.json": "./package.json"
 	},
 	"repository": {
@@ -21,6 +23,7 @@
 	},
 	"keywords": [
 		"dsh",
+		"dsh-plugin",
 		"deepseek-harness",
 		"cordis",
 		"cordis-plugin",
@@ -31,13 +34,27 @@
 		"better-sidebar"
 	],
 	"engines": {
-		"node": ">=20"
+		"node": ">=20",
+		"dsh": ">=0.2.2-rc.1"
+	},
+	"peerDependencies": {
+		"@deepseek-ai/dsh-client-runtime": "^0.2.2-rc.1",
+		"@deepseek-ai/dsh-client-ui-layout": "^0.2.2-rc.1"
+	},
+	"peerDependenciesMeta": {
+		"@deepseek-ai/dsh-client-runtime": {
+			"optional": true
+		},
+		"@deepseek-ai/dsh-client-ui-layout": {
+			"optional": true
+		}
 	},
 	"files": [
 		"lib",
 		"assets",
 		"cordis.patch.yml",
 		"examples",
+		"icon.svg",
 		"README.md",
 		"LICENSE",
 		"THIRD-PARTY-NOTICES.md"
@@ -50,6 +67,7 @@
 		"test:pager": "node tests/terminal-pager.mjs"
 	},
 	"dsh": {
+		"manifestVersion": 1,
 		"bundle": {
 			"patch": "./cordis.patch.yml"
 		},
