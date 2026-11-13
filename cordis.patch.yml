@@ -9,7 +9,7 @@
 #
 # 手工安装（见 README「方式二」）时，等价的一行是：
 #   - id: ui-terminal
-#     name: './node_modules/dsh-terminal/lib/index.js'
+#     name: './node_modules/@lylgj/dsh-terminal/lib/index.js'
 # 两种安装方式二选一，不要同时存在（同一个 id 会插入两次）。
 - insert:
     - id: ui-terminal

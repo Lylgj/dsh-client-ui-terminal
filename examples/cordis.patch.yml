@@ -18,5 +18,5 @@
 # 报 ERR_MODULE_NOT_FOUND（旧版 loader 曾用 ?rev=N 制造新 URL 来热加载宿主半边，
 # 0.2.2 不再适用——宿主半边的代码改动需要重启 DSH 才生效）。
 - insert:
-    - id: ui-terminal
-      name: './node_modules/dsh-terminal/lib/index.js'
+    - id: terminal
+      name: './node_modules/@lylgj/dsh-terminal/lib/index.js'

@@ -8,6 +8,8 @@
 
 > 第三方插件，非 DeepSeek 官方出品。
 
+npm 包名 `@lylgj/dsh-terminal`，源码在 [Lylgj/dsh-terminal](https://github.com/Lylgj/dsh-terminal)。
+
 ## 功能
 
 - **自动识别环境**：Windows 本地使用 cmd，WSL 工作区使用对应发行版的 bash，远程工作区连接 SSH，macOS/Linux 使用登录 shell。
@@ -34,12 +36,10 @@
 左侧栏 →「插件」→「添加插件」，在「包名或地址」里填：
 
 ```
-https://github.com/Lylgj/dsh-terminal
+@lylgj/dsh-terminal
 ```
 
-点「安装」，装完重启 DSH。这里填的地址不经过 npm 源，本机要能直连 github.com（或在系统代理里配好）。
-
-插件带原生依赖 `node-pty`，安装时 DSH 会问是否允许运行构建脚本，选**允许**即可——它只是把预编译好的二进制放到位，不需要本机装编译器。
+点「安装」，装完重启 DSH。插件带原生依赖 `node-pty`，DSH 会问是否允许运行构建脚本，选**允许**即可——它只是把预编译好的二进制放到位，不需要本机装编译器。
 
 **用命令行装**
 
@@ -51,6 +51,12 @@ allowBuilds:
 ```
 
 再运行：
+
+```bash
+dsh plugin --profile desktop add @lylgj/dsh-terminal
+```
+
+如果 npm 源不通，也可以直接从仓库装（内容相同，但插件页不会显示版本更新）：
 
 ```bash
 dsh plugin --profile desktop add github:Lylgj/dsh-terminal
@@ -82,8 +88,10 @@ dsh plugin --profile desktop add "D:\你的路径\dsh-terminal"
 ## 卸载
 
 ```bash
-dsh plugin --profile desktop remove dsh-terminal
+dsh plugin --profile desktop remove @lylgj/dsh-terminal
 ```
+
+从 GitHub 装的则用 `remove dsh-terminal`。
 
 完成后重新打开 DSH。卸载不影响 DSH 内置终端或 dsh-better-sidebar。
 
