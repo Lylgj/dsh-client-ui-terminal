@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Terminal Panel",
-    "description": "A real terminal in the sidebar: xterm.js + node-pty, auto-detects cmd, PowerShell, WSL and SSH, and keeps running when you switch away.",
+    "description": "A terminal in the sidebar for cmd, PowerShell, WSL and SSH.",
     "detail": "README.md"
   }
 }
