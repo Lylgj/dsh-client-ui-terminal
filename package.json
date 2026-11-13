@@ -17,6 +17,7 @@
 		"type": "git",
 		"url": "git+https://github.com/Lylgj/dsh-client-ui-terminal.git"
 	},
+	"author": "Lylgj",
 	"homepage": "https://github.com/Lylgj/dsh-client-ui-terminal",
 	"bugs": {
 		"url": "https://github.com/Lylgj/dsh-client-ui-terminal/issues"

@@ -19,7 +19,19 @@
 
 ## 安装
 
-需要 DSH **0.2.2-rc.1 或更新版本**、Node.js **20 或更新版本**，并安装 Git、能够访问 GitHub。
+需要 DSH **0.2.2-rc.1 或更新版本**、Node.js **20 或更新版本**，并能够访问 GitHub。
+
+**在界面里装（推荐）**
+
+左侧栏 →「插件」→「添加插件」，在「包名或地址」里填：
+
+```
+https://github.com/Lylgj/dsh-client-ui-terminal
+```
+
+点「安装」，装完重启 DSH。这里填的地址不经过 npm 源，本机要能直连 github.com（或在系统代理里配好）。
+
+**用命令行装**
 
 先退出 DSH，再运行：
 
@@ -28,6 +40,14 @@ dsh plugin --profile desktop add github:Lylgj/dsh-client-ui-terminal
 ```
 
 使用 `dsh web` 时，将 `desktop` 改为对应的 profile 名称（默认 `web`）。安装完成后重新打开 DSH，无需手动修改配置。
+
+**从源码装（自己改代码时）**
+
+```bash
+dsh plugin --profile desktop add "D:\你的路径\dsh-client-ui-terminal"
+```
+
+本地目录必须写绝对路径；这样装进去的是目录副本，改完源码要重新安装一次再重启。
 
 ## 使用
 
