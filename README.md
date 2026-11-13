@@ -31,6 +31,16 @@ https://github.com/Lylgj/dsh-client-ui-terminal
 
 点「安装」，装完重启 DSH。这里填的地址不经过 npm 源，本机要能直连 github.com（或在系统代理里配好）。
 
+插件带原生依赖 `node-pty`，第一次安装时 DSH 会问是否允许运行构建脚本，选**允许**即可——它只是把预编译好的二进制放到位，不需要本机装编译器。
+如果命令行安装报 `ERR_PNPM_IGNORED_BUILDS`，说明构建被拦下了：再执行一次，或在 profile 的 `pnpm-workspace.yaml` 里加上
+
+```yaml
+allowBuilds:
+  node-pty: true
+```
+
+再重试。
+
 **用命令行装**
 
 先退出 DSH，再运行：
