@@ -19,4 +19,4 @@
 # 0.2.2 不再适用——宿主半边的代码改动需要重启 DSH 才生效）。
 - insert:
     - id: ui-terminal
-      name: './node_modules/@deepseek-ai/dsh-client-ui-terminal/lib/index.js'
+      name: './node_modules/dsh-terminal/lib/index.js'

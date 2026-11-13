@@ -1,10 +1,10 @@
-# dsh-client-ui-terminal
+# dsh-terminal
 
 在 **DSH（DeepSeek Harness）** 页面里直接使用终端，不用切换到外部窗口。
 
 默认接入 **DSH 官方右侧栏**，无需安装 dsh-better-sidebar。
 
-> 第三方插件，非 DeepSeek 官方出品。包名沿用 `@deepseek-ai/dsh-client-ui-terminal`，以兼容已有安装。
+> 第三方插件，非 DeepSeek 官方出品。
 
 ## 功能
 
@@ -26,7 +26,7 @@
 左侧栏 →「插件」→「添加插件」，在「包名或地址」里填：
 
 ```
-https://github.com/Lylgj/dsh-client-ui-terminal
+https://github.com/Lylgj/dsh-terminal
 ```
 
 点「安装」，装完重启 DSH。这里填的地址不经过 npm 源，本机要能直连 github.com（或在系统代理里配好）。
@@ -46,7 +46,7 @@ allowBuilds:
 先退出 DSH，再运行：
 
 ```bash
-dsh plugin --profile desktop add github:Lylgj/dsh-client-ui-terminal
+dsh plugin --profile desktop add github:Lylgj/dsh-terminal
 ```
 
 使用 `dsh web` 时，将 `desktop` 改为对应的 profile 名称（默认 `web`）。安装完成后重新打开 DSH，无需手动修改配置。
@@ -54,7 +54,7 @@ dsh plugin --profile desktop add github:Lylgj/dsh-client-ui-terminal
 **从源码装（自己改代码时）**
 
 ```bash
-dsh plugin --profile desktop add "D:\你的路径\dsh-client-ui-terminal"
+dsh plugin --profile desktop add "D:\你的路径\dsh-terminal"
 ```
 
 本地目录必须写绝对路径；这样装进去的是目录副本，改完源码要重新安装一次再重启。
@@ -75,7 +75,7 @@ dsh plugin --profile desktop add "D:\你的路径\dsh-client-ui-terminal"
 ## 卸载
 
 ```bash
-dsh plugin --profile desktop remove @deepseek-ai/dsh-client-ui-terminal
+dsh plugin --profile desktop remove dsh-terminal
 ```
 
 完成后重新打开 DSH。卸载不影响 DSH 内置终端或 dsh-better-sidebar。

@@ -1,5 +1,5 @@
 {
-	"name": "@deepseek-ai/dsh-client-ui-terminal",
+	"name": "dsh-terminal",
 	"version": "0.3.0",
 	"private": true,
 	"type": "module",
@@ -15,12 +15,12 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/Lylgj/dsh-client-ui-terminal.git"
+		"url": "git+https://github.com/Lylgj/dsh-terminal.git"
 	},
 	"author": "Lylgj",
-	"homepage": "https://github.com/Lylgj/dsh-client-ui-terminal",
+	"homepage": "https://github.com/Lylgj/dsh-terminal",
 	"bugs": {
-		"url": "https://github.com/Lylgj/dsh-client-ui-terminal/issues"
+		"url": "https://github.com/Lylgj/dsh-terminal/issues"
 	},
 	"keywords": [
 		"dsh",

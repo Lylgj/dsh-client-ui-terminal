@@ -188,7 +188,7 @@ check("没有注册 shell.overlay 槽位", slotRegistrations.every((item) => ite
 //#region 场景 2：tab 类型描述符与 guide 卡片
 console.log("\n场景 2：官方 tab 类型描述符");
 const definition = typeRegistrations[0];
-check("id = 包名（槽位 key 一致）", definition?.id === "@deepseek-ai/dsh-client-ui-terminal", definition?.id);
+check("id = 包名（槽位 key 一致）", definition?.id === "dsh-terminal", definition?.id);
 check("kind = ui-terminal（不接管内置 terminal）", definition?.kind === "ui-terminal", definition?.kind);
 check("multiple = false（同会话只开一个页签）", definition?.multiple === false);
 check("keepMounted = true（切页签保留正文）", definition?.keepMounted === true);
@@ -208,7 +208,7 @@ check("guide icon 渲染 svg", glyph?.type === "svg" && glyph?.props?.width === 
 console.log("\n场景 3：正文槽位与关闭钩子");
 const bodySlot = slotRegistrations.find((item) => item.descriptor.name === "sidebar.right.pane.tab");
 check("注册了 sidebar.right.pane.tab 正文槽", bodySlot !== undefined);
-check("槽位 key = 类型 id", bodySlot?.descriptor?.key === "@deepseek-ai/dsh-client-ui-terminal", bodySlot?.descriptor?.key);
+check("槽位 key = 类型 id", bodySlot?.descriptor?.key === "dsh-terminal", bodySlot?.descriptor?.key);
 check("正文组件是函数", typeof bodySlot?.component === "function");
 const injected = bodySlot?.descriptor?.inject?.("session-a");
 check("inject 工厂返回 sessionId", injected?.sessionId === "session-a");
