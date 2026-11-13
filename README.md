@@ -21,9 +21,9 @@
 
 ## 界面
 
-<p><img src="docs/assets/screenshots/terminal-panel.png" alt="右侧栏里的终端" width="34%"></p>
+<p><img src="docs/assets/screenshots/terminal.png" alt="右侧栏里的终端" width="46%"></p>
 
-右侧栏顶部的「终端」页签里就是一个真终端：页签上显示当前 shell，底部状态栏显示会话尺寸和后台终端数量。
+右侧栏的「终端」页签：左上显示已连接的工作区，中间下拉切换 shell（这里是 `Windows: cmd`），右侧是浅色 / 复制 / 清屏 / 重连，「后台终端」是当前环境里还开着的终端数量。
 
 ## 安装
 
