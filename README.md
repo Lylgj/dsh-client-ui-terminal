@@ -1,5 +1,7 @@
 # dsh-terminal
 
+<p align="center"><img src="docs/assets/banner.png" alt="dsh-terminal" width="100%"></p>
+
 在 **DSH（DeepSeek Harness）** 页面里直接使用终端，不用切换到外部窗口。
 
 默认接入 **DSH 官方右侧栏**，无需安装 dsh-better-sidebar。
@@ -16,6 +18,12 @@
 - **每个环境最多 10 个终端**：本机、各 WSL 发行版、各 SSH 主机分别计数。
 
 官方侧栏不可用时，自动兼容 dsh-better-sidebar 页签；两者都没有时使用独立面板。
+
+## 界面
+
+<p><img src="docs/assets/screenshots/terminal-panel.png" alt="右侧栏里的终端" width="34%"></p>
+
+右侧栏顶部的「终端」页签里就是一个真终端：页签上显示当前 shell，底部状态栏显示会话尺寸和后台终端数量。
 
 ## 安装
 

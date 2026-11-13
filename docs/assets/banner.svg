@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" width="1280" height="400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#11111b"/>
+      <stop offset="0.55" stop-color="#181825"/>
+      <stop offset="1" stop-color="#1e1e2e"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#89b4fa" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#a6e3a1" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="stroke" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#89b4fa"/>
+      <stop offset="1" stop-color="#a6e3a1"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="400" fill="url(#bg)"/>
+  <circle cx="1080" cy="60" r="220" fill="#89b4fa" opacity="0.07"/>
+  <circle cx="120" cy="360" r="180" fill="#a6e3a1" opacity="0.05"/>
+  <rect x="48" y="96" width="4" height="196" rx="2" fill="url(#stroke)"/>
+
+  <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+    <text x="84" y="108" fill="#89b4fa" font-size="15" letter-spacing="3.2" font-weight="600">DEEPSEEK HARNESS PLUGIN</text>
+    <text x="82" y="172" fill="#cdd6f4" font-size="58" font-weight="700" letter-spacing="0.5">dsh-terminal</text>
+    <text x="84" y="222" fill="#e6e9f2" font-size="24" font-weight="500">在 DSH 页面里直接使用终端，不用切到外部窗口</text>
+    <text x="84" y="262" fill="#a6adc8" font-size="19">cmd · PowerShell · pwsh · WSL · SSH ／ 每个工作区独立运行</text>
+
+    <g fill="#9399b2" font-size="15">
+      <rect x="84" y="292" width="132" height="34" rx="17" fill="#313244"/>
+      <text x="106" y="314" fill="#cdd6f4">PTY 真终端</text>
+      <rect x="228" y="292" width="132" height="34" rx="17" fill="#313244"/>
+      <text x="250" y="314" fill="#cdd6f4">xterm.js</text>
+      <rect x="372" y="292" width="152" height="34" rx="17" fill="#313244"/>
+      <text x="394" y="314" fill="#cdd6f4">后台继续运行</text>
+    </g>
+  </g>
+
+  <!-- terminal card -->
+  <g>
+    <rect x="700" y="80" width="500" height="250" rx="16" fill="#0b0b12" opacity="0.55"/>
+    <rect x="690" y="70" width="500" height="250" rx="15" fill="#1e1e2e" stroke="#313244" stroke-width="1.5"/>
+    <path d="M690 86 a15 15 0 0 1 15 -15 h470 a15 15 0 0 1 15 15 v22 h-500 z" fill="#313244"/>
+    <circle cx="712" cy="92" r="6" fill="#f38ba8"/>
+    <circle cx="734" cy="92" r="6" fill="#f9e2af"/>
+    <circle cx="756" cy="92" r="6" fill="#a6e3a1"/>
+    <text x="790" y="97" fill="#9399b2" font-size="14" font-family="Segoe UI, Microsoft YaHei, sans-serif">终端 — powershell</text>
+
+    <g font-family="Consolas, Cascadia Mono, monospace" font-size="17">
+      <text x="718" y="152" fill="#a6adc8">PS C:\Windows&gt;</text>
+      <text x="874" y="152" fill="#cdd6f4">Get-Date</text>
+      <text x="718" y="186" fill="#89b4fa">2026-11-13 14:10:26</text>
+      <text x="718" y="220" fill="#a6adc8">PS C:\Windows&gt;</text>
+      <text x="874" y="220" fill="#cdd6f4">dir</text>
+      <text x="718" y="254" fill="#a6e3a1">appcompat  assembly  Boot  Branding</text>
+      <text x="718" y="288" fill="#a6adc8">PS C:\Windows&gt;</text>
+      <rect x="1006" y="272" width="11" height="20" fill="#a6e3a1"/>
+    </g>
+  </g>
+</svg>

@@ -56,7 +56,9 @@
 		"assets",
 		"cordis.patch.yml",
 		"examples",
+		"docs",
 		"icon.svg",
+		"screenshots.json",
 		"README.md",
 		"LICENSE",
 		"THIRD-PARTY-NOTICES.md"
