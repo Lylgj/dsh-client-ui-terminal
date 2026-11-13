@@ -80,6 +80,13 @@
 		"bundle": {
 			"patch": "./cordis.patch.yml"
 		},
+		"compatibility": {
+			"dshReleases": {
+				"0.2.2-alpha.3": "incompatible",
+				"0.2.2-rc.1": "compatible",
+				"0.2.2-rc.2": "unknown"
+			}
+		},
 		"client": {
 			"platform": "web",
 			"inject": [
