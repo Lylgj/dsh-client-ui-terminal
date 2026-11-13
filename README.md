@@ -8,6 +8,9 @@
 
 > 第三方插件，非 DeepSeek 官方出品。
 
+[![npm](https://img.shields.io/npm/v/@lylgj/dsh-terminal?color=ca9ee6)](https://www.npmjs.com/package/@lylgj/dsh-terminal)
+[![license](https://img.shields.io/npm/l/@lylgj/dsh-terminal?color=81c8be)](LICENSE)
+
 npm 包名 `@lylgj/dsh-terminal`，源码在 [Lylgj/dsh-terminal](https://github.com/Lylgj/dsh-terminal)。
 
 ## 功能
