@@ -11,6 +11,7 @@
 		".": "./lib/index.js",
 		"./client": "./lib/client.js",
 		"./cordis.patch.yml": "./cordis.patch.yml",
+		"./locale/*": "./locale/*",
 		"./package.json": "./package.json"
 	},
 	"repository": {
@@ -57,6 +58,7 @@
 		"cordis.patch.yml",
 		"examples",
 		"docs",
+		"locale",
 		"icon.svg",
 		"screenshots.json",
 		"README.md",
