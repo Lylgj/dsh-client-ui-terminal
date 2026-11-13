@@ -31,6 +31,8 @@ npm 包名 `@lylgj/dsh-terminal`，源码在 [Lylgj/dsh-terminal](https://github
 
 需要 DSH **0.2.2-rc.1 或更新版本**、Node.js **20 或更新版本**，并能够访问 GitHub。
 
+插件的 npm 包名是 `@lylgj/dsh-terminal`；下面两种装法都是让 DSH 从 npm 源拉取它。装插件要走 DSH 自己的流程（界面或 `dsh plugin`），直接 `npm install` 不会被识别成插件。
+
 **在界面里装（推荐）**
 
 左侧栏 →「插件」→「添加插件」，在「包名或地址」里填：
