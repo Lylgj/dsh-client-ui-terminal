@@ -1,7 +1,6 @@
 {
   "meta": {
     "title": "Terminal Panel",
-    "description": "A terminal in the sidebar for cmd, PowerShell, WSL and SSH.",
-    "detail": "README.md"
+    "description": "A terminal in the sidebar for cmd, PowerShell, WSL and SSH."
   }
 }

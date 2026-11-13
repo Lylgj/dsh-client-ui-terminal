@@ -1,7 +1,6 @@
 {
   "meta": {
     "title": "终端面板",
-    "description": "右侧栏里的终端，cmd、PowerShell、WSL、SSH 都能开。",
-    "detail": "README.md"
+    "description": "右侧栏里的终端，cmd、PowerShell、WSL、SSH 都能开。"
   }
 }
