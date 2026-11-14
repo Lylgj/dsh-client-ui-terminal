@@ -15,12 +15,12 @@ npm 包名 `@lylgj/dsh-terminal`，源码在 [Lylgj/dsh-terminal](https://github
 
 ## 功能
 
-- **自动识别环境**：Windows 本地使用 cmd，WSL 工作区使用对应发行版的 bash，远程工作区连接 SSH，macOS/Linux 使用登录 shell。
-- **手动切换终端**：支持 cmd、PowerShell、pwsh、WSL 和 SSH，选择按工作区记住。
+- **自动识别环境**：Windows 本地使用 cmd，WSL 工作区使用对应发行版的 bash，Docker 工作区直接 `docker exec -it` 进容器，远程工作区连接 SSH，macOS/Linux 使用登录 shell。
+- **手动切换终端**：支持 cmd、PowerShell、pwsh、WSL、运行中的 Docker 容器和 SSH，选择按工作区记住。
 - **工作区独立运行**：切换会话或收起侧栏时，原终端继续在后台运行；同一工作区复用终端。
 - **复制与粘贴**：可设置 Ctrl+C 复制、选中即复制、右键粘贴。
 - **常用操作**：浅色/暗色主题、清屏、重连、后台终端管理。
-- **每个环境最多 10 个终端**：本机、各 WSL 发行版、各 SSH 主机分别计数。
+- **每个环境最多 10 个终端**：本机、各 WSL 发行版、各 Docker 容器、各 SSH 主机分别计数。
 
 官方侧栏不可用时，自动兼容 dsh-better-sidebar 页签；两者都没有时使用独立面板。
 
